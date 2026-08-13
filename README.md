@@ -24,7 +24,7 @@ observed agent runtime. (See the addendum, AD-003.)
 | `Enterprise_AI_Agent_Observability_SRS_Addendum_Reconciliation.md` | SRS v1.1 ↔ addendum reconciliation (aligned / conflicts / gaps). |
 | `Enterprise_AI_Agent_Observability_POC_Telemetry_Simulator_Requirements.md` | Simulator that generates telemetry for N agents (POC). |
 | `Enterprise_AI_Agent_Observability_POC_Application_and_UX_Design.md` | Platform logic (inventory/dependency/status) + UX. |
-| `Enterprise_AI_Agent_Observability_Feature_Spec_Spread_and_Security_Evals.md` | Pre-demo features: failure-spread (code-vs-deployment) classifier + security evals. |
+| `Enterprise_AI_Agent_Observability_Pre_Demo_Feature_Specs.md` | Pre-demo features: failure-spread (code-vs-deployment) classifier, security evals, **and alerting**. |
 | `Enterprise_AI_Agent_Observability_Competitive_Positioning.md` | Positioning vs Phoenix × Galileo. **Internal.** |
 
 ## Status

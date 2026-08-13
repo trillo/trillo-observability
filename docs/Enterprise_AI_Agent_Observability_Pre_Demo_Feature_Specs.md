@@ -1,19 +1,19 @@
 # Enterprise AI Agent Observability & Analytics
-## Feature Specification: Failure Spread (Code-vs-Deployment) & Security Evaluations
+## Pre-Demo Feature Specifications: Failure Spread, Security Evaluations, and Alerting
 
-**Document Version:** 0.1 (draft)
+**Document Version:** 0.2 (draft)
 **Companion to:** POC Requirements (PRD v1.5), SRS v1.1, Requirements Addendum
 (decision log), Application & UX Design.
-**Purpose:** Two differentiating capabilities to add before the demo, on top of
-the seven RFP scenarios. Both lean on primitives the platform already has
-(failure clustering, the eval framework, sweepers, governance) so they are
-buildable in the available time.
+**Purpose:** Three differentiating capabilities to add before the demo, on top of
+the seven RFP scenarios. All lean on primitives the platform already has (failure
+clustering, the eval framework, sweepers, governance, **webhooks/scheduler/email**)
+so they are buildable in the available time.
 
 ---
 
 ## 1. Purpose and Scope
 
-This document specifies two features:
+This document specifies three features:
 
 - **Feature A — Failure Spread & Root-Cause Class (Code vs Deployment).** Turn "an
   agent failed" into "*why class* of failure": a **CODE** problem (the logical
@@ -27,14 +27,23 @@ This document specifies two features:
   system-prompt exfiltration, unsafe tool-call manipulation — feeding Governance.
   Distinct from PII/PCI redaction (which protects *outgoing* data); this detects
   *incoming* attacks (Addendum AD-012, item 4).
+- **Feature C — Alerting & On-Call Routing.** Turn findings/thresholds into
+  **active notifications** routed to on-call channels (Slack, PagerDuty, webhook,
+  email), so a problem reaches an SRE **without anyone watching a dashboard** —
+  completing the **detect → alert → investigate → resolve** loop. The #1 gap in
+  the competitive review (AD-012) and the operational must-have; a wiring exercise
+  on the existing AOS **webhooks (plan-73) / scheduler / email-SMS** primitives.
 
-Both integrate into the existing demo: Feature A deepens **Scenario 2
+All three integrate into the existing demo: Feature A deepens **Scenario 2
 (Reliability)** and **Scenario 7 (Executive)**; Feature B deepens **Scenario 6
-(Governance)** and **Scenario 7**.
+(Governance)** and **Scenario 7**; **Feature C is the entry point** — the demo can
+now *start from an alert* that deep-links to the evidence.
 
 Consistency: aligns with the SRS governance/eval schema; **Feature A adds a
 `failure_clusters` table** (also fills the "spread classifier" gap noted in
-Addendum AD-013). Aggregation is sweeper-based and incremental (AD-006).
+Addendum AD-013); **Feature C adds alert tables** and reuses existing webhook/
+notification primitives. Aggregation and rule evaluation are sweeper-based and
+incremental (AD-006).
 
 ---
 
@@ -81,9 +90,8 @@ The platform shall:
   `agent_dependencies` include the failing tool/system (reverse-dependency
   lookup).
 - Rank clusters by severity × blast radius, and expose them as **findings**.
-- (Optional, if the alert channel is built) raise a **threshold alert** when a
-  cluster crosses a spread/severity threshold, routed via the AOS webhook /
-  email / scheduler primitives.
+- Feed **Feature C (Alerting)**: a cluster crossing a spread/severity threshold is
+  a first-class alert source (one alert per cluster, carrying the blast radius).
 
 ### 2.4 Data Model Changes
 
@@ -129,8 +137,8 @@ No change to `otlp_spans` — the spread is derived from existing dimensions
   produces a plain-language diagnosis that **explicitly names the class** ("code
   vs deployment") and a recommended next action. "Functions own facts; agents own
   interpretation" (PRD §13.2).
-- *(Optional)* **Alert Dispatch** *(function)* — on threshold breach, route the
-  cluster finding via AOS webhooks / email.
+- **Alert integration** — a cluster crossing threshold is dispatched by **Feature
+  C (Alert Dispatcher)**; see §4.
 
 ### 2.6 User Experience
 
@@ -262,7 +270,123 @@ Rides existing tables — minimal additions:
 
 ---
 
-## 4. Cross-Cutting Requirements
+## 4. Feature C — Alerting & On-Call Routing
+
+### 4.1 Concept
+
+Convert findings/thresholds into **active notifications** routed to on-call
+channels (Slack, PagerDuty, generic webhook, email/SMS), so a problem reaches an
+SRE without anyone watching a dashboard — completing **detect → alert →
+investigate → resolve**. Reuses Trillo AOS **webhooks (plan-73, HMAC-signed)**,
+**scheduler**, and **email/SMS templates**, so it is a wiring exercise, not a
+ground-up build.
+
+**Fleet-scale principle (the differentiator):** alerts evaluate against
+**rollups / findings / clusters**, never raw events (millions/min), and are
+**grouped** so one CODE-class issue across 47 instances is **one** alert carrying
+the blast radius — not 47. This alert-fatigue avoidance ties Feature C directly to
+Feature A.
+
+Honesty note (AD-012): this is **post-hoc** detection + routing, not inline
+prevention.
+
+### 4.2 Demonstration Requirements
+
+Show how a user can:
+- define a threshold/finding-based alert rule scoped to app/agent/etc.;
+- have it **fire** on a real condition (a CODE-class cluster, a cost spike, or a
+  security FAIL);
+- see it **route** to a channel (Slack/webhook) **and** an in-app feed;
+- open the notification's **deep link** straight to the evidence (cluster/trace);
+- **acknowledge**, and watch it **auto-resolve** when the condition clears.
+
+### 4.3 POC Requirements
+
+The platform shall:
+- Support **alert rules**: a **condition** (metric or finding/cluster type,
+  operator, threshold, window), a **scope** (application / agent / model / tool /
+  location / environment), a **severity**, target **channel(s)**, enabled, and an
+  optional **suppression / maintenance window**.
+- Support condition sources including error-rate, latency percentile, **cost spike
+  / budget threshold**, a **new/updated `failure_cluster`** crossing severity or
+  spread (Feature A), a **SECURITY finding** (Feature B), and a guardrail-pass-rate
+  drop.
+- Evaluate rules **incrementally** against rollups / findings / clusters (sweeper,
+  AD-006) — **never per raw event**.
+- **Deduplicate/group** firing alerts by a dedup key (cluster signature, or
+  rule+scope) so one issue = one alert with blast radius; **suppress
+  re-notification** within a window.
+- Maintain an **alert lifecycle**: `FIRING → ACKNOWLEDGED → RESOLVED` with
+  **auto-resolve** when the condition clears, and notify on fire and on resolve.
+- **Route** via Slack, PagerDuty, generic **webhook (HMAC)**, and email/SMS, with
+  severity-based routing; **log every delivery**.
+- Provide an **in-app alert feed / inbox** and per-alert **deep links** to the
+  finding / cluster / trace evidence.
+- Record alert-rule changes in the **administrative audit** (governance
+  consistency).
+
+### 4.4 Data Model Changes
+
+- **`alert_rules`** — `rule_id`, `name`, scope dims, `condition {source,
+  metric_or_finding_type, operator, threshold, window}`, `severity`, `channels`
+  JSONB, `dedup_key_template`, `suppression_window`, `enabled`, `created_by`,
+  timestamps.
+- **`alerts`** (incidents) — `alert_id`, `rule_id`, `dedup_key`, `status`
+  (FIRING/ACKNOWLEDGED/RESOLVED), `severity`, entity refs (`application_id`,
+  `agent_id`, `cluster_id`, `finding_id`), `current_value`, `threshold`,
+  `blast_radius` JSONB (spread / impacted agents), `fired_at`, `last_notified_at`,
+  `acknowledged_by`/`_at`, `resolved_at`.
+- **`alert_notifications`** (delivery log) — `notification_id`, `alert_id`,
+  `channel`, `target`, `status` (SENT/FAILED), `attempt`, `sent_at`, `response`.
+- **`alert_channels`** (config) — `channel_id`, `type`
+  (SLACK/PAGERDUTY/WEBHOOK/EMAIL), endpoint/secret ref, severity routing. (Or reuse
+  existing webhook/notification config.)
+- Condition **sources** are `metric_rollups` / `platform_findings` /
+  `failure_clusters` — **no change to telemetry tables**.
+
+### 4.5 Background Functions and Agents
+
+- **Alert Rule Evaluator** *(sweeper / near-real-time, every 1–5 min)* — evaluates
+  enabled rules against recent rollups/findings/clusters; opens/updates/resolves
+  `alerts` via the state machine; dedups by key. Incremental (AD-006).
+- **Alert Dispatcher** *(function)* — on fire/resolve, renders the notification
+  (template) with blast radius + deep link and routes to the channel(s) via AOS
+  webhooks / email / SMS; writes `alert_notifications`; retries on failure.
+- **Alert Triage Agent** *(optional AI)* — for a firing alert, produces a concise
+  "what / why / impact / suggested action" grounded in the finding/cluster
+  (reuses the SRE Root Cause Agent's output) to enrich the notification.
+
+### 4.6 User Experience
+
+- **Alerts screen** — two panels: **Rules** (condition builder + scope + channel +
+  severity; plus "create alert from this" shortcuts on findings/clusters/cost
+  views) and **Incidents** (feed of FIRING/ACK/RESOLVED, filter by
+  app/agent/severity/status).
+- **Alert detail** — condition, current-vs-threshold, **blast radius** (spread +
+  impacted agents), **timeline** (fired/notified/ack/resolved), **delivery log**,
+  **acknowledge/resolve** actions, and deep-links to the cluster/trace/finding.
+- **Header inbox / bell** — unread firing alerts; click → evidence.
+- **Executive dashboard (§7)** — open firing alerts by severity.
+
+### 4.7 Target Demonstration Outcome
+
+The demo **starts from an alert** — "CODE-class failure across 47 instances / 12
+stores → Slack + PagerDuty" — that deep-links straight to the cluster evidence.
+This answers the competitive review's #1 gap (a real tool alerts you at 2 AM) and
+showcases fleet-scale, **de-duplicated** alerting rather than per-instance noise.
+
+### 4.8 Evaluation / Positioning
+
+| Criteria | Target | Capability |
+| :-- | :-: | :-- |
+| Operational readiness | 5/5 | Threshold + finding-based alerts to Slack/PagerDuty/webhook/email. |
+| Alert-fatigue avoidance | 5/5 | Grouping by cluster/signature — one issue, one alert, with blast radius. |
+| Actionability | 5/5 | Notification carries spread + root-cause class + deep link to evidence. |
+| Lifecycle | 5/5 | Fire → ack → auto-resolve, with delivery audit. |
+
+---
+
+## 5. Cross-Cutting Requirements
 
 - **Scale (AD-006):** both features compute via **incremental sweepers** over
   recent records; `failure_clusters` and security rollups **UPSERT** (union over
@@ -272,11 +396,11 @@ Rides existing tables — minimal additions:
 - **Consistency:** Feature A's `failure_clusters` is the concrete home for the
   Addendum AD-009 "spread" classifier (also an SRS gap per AD-013). Feature B
   extends the SRS eval/governance schema without new core tables.
-- **Alerting (optional):** if the alert channel is built, both features are
-  natural alert sources (a CODE-class cluster; a SECURITY FAIL), routed via
-  existing AOS webhooks / scheduler / email.
+- **Alerting (Feature C):** A and B are first-class alert sources — a CODE-class
+  cluster and a SECURITY FAIL — surfaced through Feature C's rules + dispatch over
+  the existing AOS webhooks / scheduler / email primitives.
 
-## 5. Simulator Implications
+## 6. Simulator Implications
 
 The Telemetry Simulator must generate the data these features consume:
 - **Feature A:** already required to emit **both** failure modes (single-instance/
@@ -287,7 +411,7 @@ The Telemetry Simulator must generate the data these features consume:
   with a believable FAIL tail, plus benign look-alikes, so detectors and the
   security pass-rate read realistically.
 
-## 6. Demo Integration
+## 7. Demo Integration
 
 - After **Reliability (Scenario 2)**: show the spread classifier turn "an agent
   failed" into "**CODE** — 47 instances/12 stores/v1.4" and reveal **impacted
@@ -297,10 +421,10 @@ The Telemetry Simulator must generate the data these features consume:
 - On the **Executive dashboard (Scenario 7)**: both surface as high-risk findings
   and posture metrics, closing the loop.
 
-## 7. Open Items
+## 8. Open Items
 
-- Whether to build the **alert channel** now (delivery) or only the signals
-  (findings) for the demo.
+- Feature C channels to wire for the demo (Slack + email is the minimum; add
+  PagerDuty/webhook if time) and whether the **Alert Triage Agent** ships in v1.
 - Detector approach for Feature B (heuristics-only vs heuristics + LLM-judge)
   given time.
 - `root_cause_class` thresholds (what spread ratio flips CODE vs DEPLOYMENT) —

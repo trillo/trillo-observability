@@ -1,7 +1,7 @@
 # Enterprise AI Agent Observability & Analytics
 ## Requirements Addendum (Decision Log)
 
-**Addendum Version:** 0.15 (in progress)
+**Addendum Version:** 0.16 (in progress)
 **Base Document:** Enterprise AI Agent Observability & Analytics — Proof of Concept
 Requirements and Demonstration Specification, **v1.5**
 **Platform:** Trillo AOS
@@ -434,29 +434,37 @@ and read as the change record.
   naming table in **`Enterprise_AI_Agent_Observability_SRS_Addendum_Reconciliation.md`**.
 - **Status:** Open — B1–B5 pending decision.
 
-### AD-014 — Pre-demo features: Failure Spread + Security Evaluations (companion spec)
+### AD-014 — Pre-demo features: Failure Spread + Security Evaluations + Alerting (companion spec)
 
 - **Date:** 2026-08-13
 - **Area / Topic:** Differentiating features to add before the demo
 - **Relationship:** ADDS — extends §5/§13; feature-spec companion document
-- **Decision:** Add two differentiating capabilities before the demo, both
+- **Decision:** Add three differentiating capabilities before the demo, all
   buildable on existing primitives (clustering, eval framework, sweepers,
-  governance):
+  governance, webhooks/scheduler/email):
   1. **Failure Spread & Root-Cause Class** — cluster failures and classify
      **CODE vs DEPLOYMENT vs DEPENDENCY** from a **spread** vector (distinct
      instances/stores/versions), with **multi-agent impacted-agents** for shared
      dependencies and version-correlation for regressions. Adds a
-     **`failure_clusters`** table (this is the concrete home for the AD-009 spread
-     classifier and fills the AD-013 gap).
+     **`failure_clusters`** table (the concrete home for the AD-009 spread
+     classifier; fills the AD-013 gap).
   2. **Security Evaluations** — a dedicated **adversarial-input** eval category
-     (prompt injection / jailbreak / system-prompt exfiltration / unsafe tool
-     manipulation) feeding Governance; rides `otlp_events` + governance +
-     findings, no new core table.
-  Both are sweeper-based/incremental (AD-006). Blocking in Feature B is post-hoc
-  (observability-triggered), not true inline prevention (AD-012). Full spec:
-  **`Enterprise_AI_Agent_Observability_Feature_Spec_Spread_and_Security_Evals.md`**.
-- **Status:** Draft (spec written; build pending). Open: build the alert channel
-  now vs later; Feature B detector approach (heuristics vs +LLM-judge).
+     (prompt injection / jailbreak / exfiltration / unsafe tool manipulation)
+     feeding Governance; rides `otlp_events` + governance + findings, no new core
+     table.
+  3. **Alerting & On-Call Routing** *(the operational must-have; competitive
+     review #1 gap)* — threshold/finding-based **alert rules** → evaluated
+     incrementally against rollups/findings/clusters → **grouped/de-duplicated**
+     (one alert per cluster with blast radius, not per-instance) → routed to
+     Slack/PagerDuty/webhook/email via AOS webhooks; lifecycle FIRING→ACK→RESOLVED;
+     in-app feed + deep links. Adds `alert_rules`/`alerts`/`alert_notifications`/
+     `alert_channels`. The demo can now **start from an alert**.
+  All sweeper-based/incremental (AD-006). Blocking in Feature B is post-hoc, not
+  inline (AD-012). Full spec:
+  **`Enterprise_AI_Agent_Observability_Pre_Demo_Feature_Specs.md`**.
+- **Status:** Draft (spec written; build pending). Open: Feature C channels for
+  the demo + Alert Triage Agent in v1; Feature B detector approach; `root_cause_class`
+  thresholds.
 
 <!--
 Entry template (copy per decision):
@@ -494,3 +502,4 @@ Entry template (copy per decision):
 | 0.13 | 2026-08-13 | Added AD-012 (competitive positioning vs Phoenix x Galileo frontier); created Competitive Positioning companion doc. |
 | 0.14 | 2026-08-13 | Added AD-013 (SRS v1.1 reconciliation): 5 conflicts (B1 storage, B2 status, B3 discovery, B4 model/tool/system tables, B5 metadata source), SRS gaps + improvements; matrix in companion doc. |
 | 0.15 | 2026-08-13 | Added AD-014 (pre-demo features: Failure Spread code-vs-deployment + Security Evaluations); feature-spec companion doc created. |
+| 0.16 | 2026-08-13 | AD-014 expanded to include Feature C (Alerting & On-Call Routing); feature-spec doc renamed to Pre_Demo_Feature_Specs and covers all three. |
