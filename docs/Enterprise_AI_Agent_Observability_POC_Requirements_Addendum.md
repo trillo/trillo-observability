@@ -1,7 +1,7 @@
 # Enterprise AI Agent Observability & Analytics
 ## Requirements Addendum (Decision Log)
 
-**Addendum Version:** 0.16 (in progress)
+**Addendum Version:** 0.17 (in progress)
 **Base Document:** Enterprise AI Agent Observability & Analytics — Proof of Concept
 Requirements and Demonstration Specification, **v1.5**
 **Platform:** Trillo AOS
@@ -466,6 +466,27 @@ and read as the change record.
   the demo + Alert Triage Agent in v1; Feature B detector approach; `root_cause_class`
   thresholds.
 
+### AD-015 — Naming convention: AOS classes singular PascalCase; tables AOS-generated `_tbl`
+
+- **Date:** 2026-08-13
+- **Area / Topic:** Data-model naming (extends the AD-013 naming table)
+- **Relationship:** CLARIFIES / AMENDS — applies model-wide
+- **Question:** Should entities like `alert_rules` / `alerts` be plural, given they
+  will be AOS classes?
+- **Decision:**
+  1. **AOS classes are singular PascalCase** — one class models one row, matching
+     every existing AOS class (`AgentM`, `Task`, `TaskEvent`, `AIMessage`,
+     `UIView`). So: **`AlertRule`, `Alert`, `AlertNotification`, `AlertChannel`**
+     (not `AlertRules`/`Alerts`); Feature A's cluster class is **`FailureCluster`**.
+  2. **Fields are camelCase** (AOS translates to snake_case columns).
+  3. **Tables are AOS-generated** from the singular class + `_tbl`
+     (`AlertRule → alert_rule_tbl`, like `AIMessage → ai_message_tbl`).
+  4. The SRS Appendix A's **plural raw-Postgres** names (`alert_rules`, `agents`,
+     `otlp_spans`, …) are the **conceptual/logical** schema; implemented on AOS
+     they become singular classes + `_tbl` (`Agent`, `Application`, `AgentInstance`,
+     `OtlpSpan`). Align the other docs to this convention incrementally.
+- **Status:** Accepted.
+
 <!--
 Entry template (copy per decision):
 
@@ -503,3 +524,4 @@ Entry template (copy per decision):
 | 0.14 | 2026-08-13 | Added AD-013 (SRS v1.1 reconciliation): 5 conflicts (B1 storage, B2 status, B3 discovery, B4 model/tool/system tables, B5 metadata source), SRS gaps + improvements; matrix in companion doc. |
 | 0.15 | 2026-08-13 | Added AD-014 (pre-demo features: Failure Spread code-vs-deployment + Security Evaluations); feature-spec companion doc created. |
 | 0.16 | 2026-08-13 | AD-014 expanded to include Feature C (Alerting & On-Call Routing); feature-spec doc renamed to Pre_Demo_Feature_Specs and covers all three. |
+| 0.17 | 2026-08-13 | Added AD-015 (naming: AOS classes singular PascalCase -> _tbl; alert entities = AlertRule/Alert/AlertNotification/AlertChannel, FailureCluster). Applied singular class names in the feature spec. |

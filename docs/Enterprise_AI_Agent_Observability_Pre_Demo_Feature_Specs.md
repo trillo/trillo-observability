@@ -1,7 +1,7 @@
 # Enterprise AI Agent Observability & Analytics
 ## Pre-Demo Feature Specifications: Failure Spread, Security Evaluations, and Alerting
 
-**Document Version:** 0.2 (draft)
+**Document Version:** 0.3 (draft)
 **Companion to:** POC Requirements (PRD v1.5), SRS v1.1, Requirements Addendum
 (decision log), Application & UX Design.
 **Purpose:** Three differentiating capabilities to add before the demo, on top of
@@ -40,7 +40,7 @@ All three integrate into the existing demo: Feature A deepens **Scenario 2
 now *start from an alert* that deep-links to the evidence.
 
 Consistency: aligns with the SRS governance/eval schema; **Feature A adds a
-`failure_clusters` table** (also fills the "spread classifier" gap noted in
+`FailureCluster` table** (also fills the "spread classifier" gap noted in
 Addendum AD-013); **Feature C adds alert tables** and reuses existing webhook/
 notification primitives. Aggregation and rule evaluation are sweeper-based and
 incremental (AD-006).
@@ -95,7 +95,7 @@ The platform shall:
 
 ### 2.4 Data Model Changes
 
-New table `failure_clusters` (built by the sweeper; small, bounded):
+New AOS class **`FailureCluster`** (`failure_cluster_tbl`; built by the sweeper; small, bounded; fields camelCase per AD-015):
 
 | Field | Type | Purpose |
 | :-- | :-- | :-- |
@@ -125,7 +125,7 @@ No change to `otlp_spans` — the spread is derived from existing dimensions
 ### 2.5 Background Functions and Agents
 
 - **Failure Clusterer** *(sweeper / function, every 5 min, incremental)* — groups
-  recent failed executions by signature; upserts `failure_clusters` with updated
+  recent failed executions by signature; upserts `FailureCluster` with updated
   counts and `last_seen_at` (union-over-time, AD-006).
 - **Spread Classifier** *(deterministic function inside the clusterer)* — computes
   the spread vector + `root_cause_class` + `version_correlated` from the cluster's
@@ -308,7 +308,7 @@ The platform shall:
   location / environment), a **severity**, target **channel(s)**, enabled, and an
   optional **suppression / maintenance window**.
 - Support condition sources including error-rate, latency percentile, **cost spike
-  / budget threshold**, a **new/updated `failure_cluster`** crossing severity or
+  / budget threshold**, a **new/updated `FailureCluster`** crossing severity or
   spread (Feature A), a **SECURITY finding** (Feature B), and a guardrail-pass-rate
   drop.
 - Evaluate rules **incrementally** against rollups / findings / clusters (sweeper,
@@ -327,31 +327,33 @@ The platform shall:
 
 ### 4.4 Data Model Changes
 
-- **`alert_rules`** — `rule_id`, `name`, scope dims, `condition {source,
-  metric_or_finding_type, operator, threshold, window}`, `severity`, `channels`
-  JSONB, `dedup_key_template`, `suppression_window`, `enabled`, `created_by`,
-  timestamps.
-- **`alerts`** (incidents) — `alert_id`, `rule_id`, `dedup_key`, `status`
-  (FIRING/ACKNOWLEDGED/RESOLVED), `severity`, entity refs (`application_id`,
-  `agent_id`, `cluster_id`, `finding_id`), `current_value`, `threshold`,
-  `blast_radius` JSONB (spread / impacted agents), `fired_at`, `last_notified_at`,
-  `acknowledged_by`/`_at`, `resolved_at`.
-- **`alert_notifications`** (delivery log) — `notification_id`, `alert_id`,
-  `channel`, `target`, `status` (SENT/FAILED), `attempt`, `sent_at`, `response`.
-- **`alert_channels`** (config) — `channel_id`, `type`
+New **AOS classes** — singular PascalCase, camelCase fields; AOS generates the
+`*_tbl` table (naming convention AD-015):
+
+- **`AlertRule`** (`alert_rule_tbl`) — `name`, scope dims, `condition {source,
+  metricOrFindingType, operator, threshold, window}`, `severity`, `channels`,
+  `dedupKeyTemplate`, `suppressionWindow`, `enabled`, `createdBy`, timestamps.
+- **`Alert`** (`alert_tbl`, one incident) — `ruleId`, `dedupKey`, `status`
+  (FIRING/ACKNOWLEDGED/RESOLVED), `severity`, entity refs (`applicationId`,
+  `agentId`, `clusterId`, `findingId`), `currentValue`, `threshold`,
+  `blastRadius` (spread / impacted agents), `firedAt`, `lastNotifiedAt`,
+  `acknowledgedBy`/`acknowledgedAt`, `resolvedAt`.
+- **`AlertNotification`** (`alert_notification_tbl`, delivery log) — `alertId`,
+  `channel`, `target`, `status` (SENT/FAILED), `attempt`, `sentAt`, `response`.
+- **`AlertChannel`** (`alert_channel_tbl`, config) — `type`
   (SLACK/PAGERDUTY/WEBHOOK/EMAIL), endpoint/secret ref, severity routing. (Or reuse
   existing webhook/notification config.)
-- Condition **sources** are `metric_rollups` / `platform_findings` /
-  `failure_clusters` — **no change to telemetry tables**.
+- Condition **sources** are the rollup / finding / **`FailureCluster`** classes —
+  **no change to telemetry classes**.
 
 ### 4.5 Background Functions and Agents
 
 - **Alert Rule Evaluator** *(sweeper / near-real-time, every 1–5 min)* — evaluates
   enabled rules against recent rollups/findings/clusters; opens/updates/resolves
-  `alerts` via the state machine; dedups by key. Incremental (AD-006).
+  `Alert` via the state machine; dedups by key. Incremental (AD-006).
 - **Alert Dispatcher** *(function)* — on fire/resolve, renders the notification
   (template) with blast radius + deep link and routes to the channel(s) via AOS
-  webhooks / email / SMS; writes `alert_notifications`; retries on failure.
+  webhooks / email / SMS; writes `AlertNotification`; retries on failure.
 - **Alert Triage Agent** *(optional AI)* — for a firing alert, produces a concise
   "what / why / impact / suggested action" grounded in the finding/cluster
   (reuses the SRE Root Cause Agent's output) to enrich the notification.
@@ -389,11 +391,11 @@ showcases fleet-scale, **de-duplicated** alerting rather than per-instance noise
 ## 5. Cross-Cutting Requirements
 
 - **Scale (AD-006):** both features compute via **incremental sweepers** over
-  recent records; `failure_clusters` and security rollups **UPSERT** (union over
+  recent records; `FailureCluster` and security rollups **UPSERT** (union over
   time). No raw-span scans on read.
 - **Governance/RBAC:** offending prompts/tool-args obey field-level masking
   (PRD §9, SRS §4.1); security findings and evidence exports are access-controlled.
-- **Consistency:** Feature A's `failure_clusters` is the concrete home for the
+- **Consistency:** Feature A's `FailureCluster` is the concrete home for the
   Addendum AD-009 "spread" classifier (also an SRS gap per AD-013). Feature B
   extends the SRS eval/governance schema without new core tables.
 - **Alerting (Feature C):** A and B are first-class alert sources — a CODE-class
