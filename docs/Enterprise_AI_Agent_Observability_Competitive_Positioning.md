@@ -38,8 +38,8 @@ Legend: 🟢 Strong (differentiator) · 🟡 Partial · 🔴 Gap
 | :-- | :-- | :-: | :-- |
 | 5 | **Multi-agent / A2A observability** | 🟢 | AD-002/004/005: agent-tree projection, nearest-ancestor attribution, cross-boundary trace-linking (AD-004 distributed case), agent→agent dependencies, and **spread**-based code-vs-deployment triage. The review names this the differentiation opportunity — already designed. |
 | 1 | **Alerting & on-call routing** | 🟡 | Detection exists (findings + thresholds + baselines, §13); §13.4 *deliberately scoped alerts out of the POC*. Routing is a wiring exercise — Trillo AOS has webhooks, scheduler, email/SMS. |
-| 4 | **Security evals (prompt injection / jailbreak)** | 🟡 | Eval framework exists (toxicity / hallucination / PII as `otlp_events` with score/label); a dedicated **adversarial-input** eval category is a model add + detector work. |
-| 6 | **Behavioral drift detection** | 🟡 | `analysis_baselines` + Performance Regression Analyzer + eval-scores-over-time exist; **statistical drift** (distribution shift, gradual eval decline) is a layer on top, not yet specced. |
+| 4 | **Security evals (prompt injection / jailbreak)** | 🟡 | Eval framework exists (toxicity / hallucination / PII as `otlp_event` with score/label); a dedicated **adversarial-input** eval category is a model add + detector work. |
+| 6 | **Behavioral drift detection** | 🟡 | `analysis_baseline` + Performance Regression Analyzer + eval-scores-over-time exist; **statistical drift** (distribution shift, gradual eval decline) is a layer on top, not yet specced. |
 | 8 | **Retention / sampling / cost controls** | 🟡 | AD-006 (columnar + incremental sweepers + rollups) is genuinely scale-aware, and rollups *enable* tiered retention; explicit **sampling / downsampling / aging / cost-transparency** policy is a gap. |
 | 7 | **One-line auto-instrumentation** | 🟡 | Strength: **OTel-native** (GenAI semconv, AD-004/010) → any OpenInference/OpenLLMetry-instrumented agent already works, no proprietary lock-in. Gap: no *we-provide-it* one-line libs; the **emit-`agent_id`** requirement (AD-001a) adds friction — the deferred **resolve-by-name** is the mitigation. |
 | 2 | **True inline guardrails** | 🔴 | §9 has versioned policy + BLOCK, but that's **observability-triggered / post-hoc**. True inline prevention runs *in the agent's request path* — an **enforcement-point product (SDK / proxy)**, architecturally distinct from observability. We observe the agents; we're not in their path. |
@@ -84,7 +84,7 @@ primitive:
 | Experimentation seed (3) | Agent authoring (Designer), agent-test, prompt templates | Add dataset/rerun loop |
 | Governance actions (2, post-hoc) | Policy model, KMS keyring, audit | Present; inline is separate |
 | Sweepers/rollups (6, 8) | Scheduler + incremental sweeper contract (AD-006) | Add drift math / retention policy |
-| Security-eval category (4) | `otlp_events` eval framework | Add category + detectors |
+| Security-eval category (4) | `otlp_event` eval framework | Add category + detectors |
 
 ## 6. Strategic read
 

@@ -1,7 +1,7 @@
 # Enterprise AI Agent Observability & Analytics
 ## Requirements Addendum (Decision Log)
 
-**Addendum Version:** 0.17 (in progress)
+**Addendum Version:** 0.18 (in progress)
 **Base Document:** Enterprise AI Agent Observability & Analytics — Proof of Concept
 Requirements and Demonstration Specification, **v1.5**
 **Platform:** Trillo AOS
@@ -45,12 +45,12 @@ and read as the change record.
 - **Question:** Does telemetry carry `agent_id`? Is it unique? Does it change with
   the agent version, or do we need to add version info to the telemetry data?
 - **Decision:**
-  1. Telemetry carries `agent_id` (and `agent_name`) on both `agent_executions`
-     and `otlp_spans`.
+  1. Telemetry carries `agent_id` (and `agent_name`) on both `agent_execution`
+     and `otlp_span`.
   2. `agent_id` is the **logical** agent identity — unique per named capability
      and **stable**; it does **not** change across versions or runtime instances.
   3. Version is a **separate dimension already in the model**: `agent_version` on
-     `agent_executions`, `agent_instances`, and `otlp_spans`; `agents.current_version`
+     `agent_execution`, `agent_instance`, and `otlp_span`; `agent.current_version`
      on the logical row. Version info does **not** need to be added — it must be
      **populated** on every telemetry row.
   4. Identity levels are distinct and stack:
@@ -63,7 +63,7 @@ and read as the change record.
   dimension. Baking version into `agent_id` would break regression/baseline
   comparison and fragment the inventory.
 - **Impact:** Every span/execution must set both `agent_id` and `agent_version`.
-  Analytics group by `agent_id` and pivot by `agent_version`. Inventory (`agents`)
+  Analytics group by `agent_id` and pivot by `agent_version`. Inventory (`agent`)
   holds one row per logical agent carrying `current_version`.
 - **Open sub-decisions (recommendations pending confirmation):**
   - **(a) How ingestion obtains the stable `agent_id`.** **V1 decision (Accepted):
@@ -83,15 +83,15 @@ and read as the change record.
 
 - **Date:** 2026-08-12
 - **Area / Topic:** Dependency/topology discovery, span-tree traversal
-- **Relationship:** CLARIFIES — PRD §11.2.9 (`agent_dependencies`), §13.3
+- **Relationship:** CLARIFIES — PRD §11.2.9 (`agent_dependency`), §13.3
   (Dependency Reconciler), §11.3.5 (correlation rules)
 - **Question:** Can a sweeper build an agent's topology (the components it
   connects to — sub-agents, tools, models, systems) by scanning span data? In the
   span tree, does the tree extend through agent nodes?
 - **Decision:**
-  1. Yes. A sweeper reconstructs topology from `otlp_spans` by walking each trace
+  1. Yes. A sweeper reconstructs topology from `otlp_span` by walking each trace
      via `parent_span_id` — this is the **OBSERVED** `discovery_source`
-     populating `agent_dependencies`.
+     populating `agent_dependency`.
   2. Confirmed: **the span tree extends through agent nodes** (and many
      non-agent nodes — model, tool, HTTP, DB, function; see **AD-004**). A
      nested agent yields a child agent span, and its own tools/models/sub-agents
@@ -119,7 +119,7 @@ and read as the change record.
     Wendy's agents are composed (framework-dependent).
 - **Impact:** Dependency Reconciler implements the nearest-ancestor-agent walk +
   cross-trace aggregation; topology view (§4.3 Dependencies tab, §5 impacted
-  systems) is driven from the aggregated `agent_dependencies`. **This walk IS the
+  systems) is driven from the aggregated `agent_dependency`. **This walk IS the
   "Agent Execution Tree" projection (see AD-004)** — the full span tree also
   contains non-agent spans (model/tool/HTTP/DB/function) that this projection
   collapses.
@@ -138,7 +138,7 @@ and read as the change record.
   2. **Trillo AOS** is the platform on which the **observability application**
      (this POC and its production successor) is built (§12) — the
      analytics/consumer side, not the observed agent runtime.
-  3. Telemetry (`otlp_spans`/`otlp_events`/`otlp_metrics`/`otlp_logs`) originates
+  3. Telemetry (`otlp_span`/`otlp_event`/`otlp_metric`/`otlp_log`) originates
      from Wendy's framework-instrumented agents emitting **OpenTelemetry** (e.g.
      OTel GenAI semantic conventions / OpenInference / OpenLLMetry → OTLP).
   4. The separate design "AOS as a native OTel producer"
@@ -160,7 +160,7 @@ and read as the change record.
 - **Date:** 2026-08-12
 - **Area / Topic:** Trace/session modeling, span taxonomy, UI tree views
 - **Relationship:** CLARIFIES / AMENDS — PRD §11.2.2 (trace/execution modeling),
-  §11.2.10 (`agent_executions`), §11.3.1 (`otlp_spans`), §11.3.5; **refines AD-002**
+  §11.2.10 (`agent_execution`), §11.3.1 (`otlp_span`), §11.3.5; **refines AD-002**
 - **Basis:** OpenTelemetry — Traces (a trace is a tree of spans, each span ≤1
   parent, many children, rooted at one root span); Session semantic conventions
   (a session is a collection of spans/logs/events over the session lifetime
@@ -170,8 +170,8 @@ and read as the change record.
   1. **Hierarchy:** `Session/Conversation → one or more Traces → tree of spans`.
      A **turn = one trace**; a **session ⊇ many traces** (each user request is a
      trace; background actions are their own traces) — NOT 1:1. The PRD already
-     supports this: `agent_executions.session_id` groups multiple executions/
-     traces; `otlp_spans` carries both `session_id` and `trace_id`. (Corrects the
+     supports this: `agent_execution.session_id` groups multiple executions/
+     traces; `otlp_span` carries both `session_id` and `trace_id`. (Corrects the
      earlier "turn = trace = session" shorthand.)
   2. **The span tree is NOT limited to agent nodes.** A trace contains spans for
      ANY instrumented operation — AGENT, MODEL (LLM), TOOL, RETRIEVAL, HTTP,
@@ -194,7 +194,7 @@ and read as the change record.
 - **Impact:**
   - AD-002's topology derivation IS the Agent-Execution-Tree projection: attribute
     each non-agent span (model/tool/retrieval/HTTP/DB) to its **nearest ancestor
-    AGENT span**; agent→agent edges from nested agent spans. `agent_dependencies`
+    AGENT span**; agent→agent edges from nested agent spans. `agent_dependency`
     (§11.2.9) = cross-trace aggregation of this projection.
   - **UI:** offer both — the full waterfall (Execution Trace Tree) and the
     collapsed Agent Tree — with toggle/drill between them.
@@ -207,7 +207,7 @@ and read as the change record.
 - **Date:** 2026-08-12
 - **Area / Topic:** Topology display, data model, sweepers vs on-read
 - **Relationship:** CLARIFIES / ADDS — §4.3 (Dependencies tab), §5 (impacted
-  systems), §11.2.9 (`agent_dependencies`), §11.3.1 (`otlp_spans`), §13.1
+  systems), §11.2.9 (`agent_dependency`), §11.3.1 (`otlp_span`), §13.1
   (execution modes), §13.3 (Dependency Reconciler)
 - **Question:** Display topology (as a waterfall with nodes?). Capture the entire
   tree in a new class with `rootAgentId`? Need another sweeper? Any way to fetch
@@ -215,27 +215,27 @@ and read as the change record.
 - **Decision:**
   1. **Two distinct topologies, different storage:**
      - **Per-execution tree** (one trace's Execution/Agent tree) — IMPLICIT in
-       `otlp_spans` (`trace_id` + `parent_span_id`). **No new class** —
+       `otlp_span` (`trace_id` + `parent_span_id`). **No new class** —
        reconstruct on read. Always current, no drift.
      - **Aggregate topology** (agent ↔ models/tools/systems/sub-agents over time;
-       the §4.3 graph) — materialized as **`agent_dependencies`** (edges, keyed by
+       the §4.3 graph) — materialized as **`agent_dependency`** (edges, keyed by
        `agent_id`, `parent_dependency_id`). Already in the PRD — not a new class.
   2. **New class?** No for per-trace; the aggregate already exists as
-     `agent_dependencies`. **Optional** render cache: materialize a per-execution
-     collapsed **Agent Tree** as JSONB on `agent_executions` at ingest
+     `agent_dependency`. **Optional** render cache: materialize a per-execution
+     collapsed **Agent Tree** as JSONB on `agent_execution` at ingest
      (`root_agent_id` attribute) — a convenience only; source of truth stays the
      spans. Add only if on-read projection proves too slow.
   3. **New sweeper?** No — the **Dependency Reconciler** (§13.3) already builds/
-     updates `agent_dependencies`. Per-trace trees need no sweeper.
+     updates `agent_dependency`. Per-trace trees need no sweeper.
   4. **Fetching topology without sweeping:**
      - **On-read reconstruction** — per-trace tree via a **recursive CTE** over
-       `otlp_spans` (or app-side parent/child assembly). Primary non-sweeping
+       `otlp_span` (or app-side parent/child assembly). Primary non-sweeping
        path; always live.
      - ~~Materialized view over spans for the aggregate graph~~ — **REMOVED (see
        AD-006):** Postgres is POC-only; production is a columnar store where this
        is not viable.
      - **Incremental upsert at ingest** — a near-real-time processor (§13.1
-       mode 1) upserts `agent_dependencies` edges as each trace lands (bump
+       mode 1) upserts `agent_dependency` edges as each trace lands (bump
        `last_seen`), instead of periodic sweeping.
      - **REGISTERED source** — derive from the agent's manifest/definition when
        Wendy's agents declare tools/sub-agents (no telemetry needed); complements
@@ -244,7 +244,7 @@ and read as the change record.
      failure) = Execution Trace Tree for one trace. Aggregate topology (§4.3) =
      **node-link graph**, not a waterfall (relationships, not a timeline).
 - **Recommendation:** per-trace = on-read by `trace_id` (no new class); aggregate
-  = `agent_dependencies` via the Dependency Reconciler; REGISTERED as a
+  = `agent_dependency` via the Dependency Reconciler; REGISTERED as a
   complement. Optional per-execution agent-tree JSONB cache only if render perf
   demands it.
 - **Status:** **Amended by AD-006** (production scale): materialized-view option
@@ -267,7 +267,7 @@ and read as the change record.
      on the columnar production store.
 - **Decision:**
   1. **Aggregate topology is built by SWEEPERS** (incremental aggregation) — not
-     on-read queries, not DB materialized views. `agent_dependencies` is the
+     on-read queries, not DB materialized views. `agent_dependency` is the
      accumulator, updated from swept recent records.
   2. **Incremental over recent records** — sweepers process only records added
      since a **watermark** (§13.6 job model); no historical rescans.
@@ -287,7 +287,7 @@ and read as the change record.
      telemetry), per AD-002 / AD-005.
 - **Impact:** abstract the telemetry store behind Trillo AOS APIs (columnar in
   prod, Postgres in POC); the sweeper contract is watermark-incremental and hosts
-  multiple aggregators in one pass; `agent_dependencies` upsert-accumulates the
+  multiple aggregators in one pass; `agent_dependency` upsert-accumulates the
   union with first/last-seen.
 - **Status:** Accepted.
 
@@ -295,7 +295,7 @@ and read as the change record.
 
 - **Date:** 2026-08-12
 - **Area / Topic:** Dependency lifecycle / topology staleness
-- **Relationship:** CLARIFIES — §11.2.9 (`agent_dependencies.last_seen_at`,
+- **Relationship:** CLARIFIES — §11.2.9 (`agent_dependency.last_seen_at`,
   `is_active`)
 - **Decision:** Record `last_seen` on every dependency edge. Retirement is
   handled **at query time** — filter out edges not seen within a recency window —
@@ -320,17 +320,17 @@ and read as the change record.
 
 - **Date:** 2026-08-12
 - **Area / Topic:** Agent/instance/location status, inventory & dependency logic, UX
-- **Relationship:** ADDS / CLARIFIES — §11.2.4 / §11.2.5 (`agents` / `agent_instances`
+- **Relationship:** ADDS / CLARIFIES — §11.2.4 / §11.2.5 (`agent` / `agent_instance`
   `status`), §4–§5 (inventory, reliability), §11.2.9 (dependencies)
 - **Decision:**
   1. **Status = latest trace status** (freshest signal), materialized on
-     `agents.status` / `agent_instances.status` by the sweeper each run.
+     `agent.status` / `agent_instance.status` by the sweeper each run.
   2. **Trace status = highest severity** across its spans/events:
      `ERROR > WARNING > HEALTHY` (warning-but-no-error ⇒ `WARNING`).
   3. **Instance status** = last-trace status of that instance; **Location status**
      = **worst** status among instances at that location.
   4. **Error rate is a separate rollup** (trend), not the status badge.
-  5. **Agent-level dependency view** = the aggregate `agent_dependencies`
+  5. **Agent-level dependency view** = the aggregate `agent_dependency`
      (union-over-time); **trace-level** = that trace's actual spans. Two different
      sources.
   6. Inventory-build (L1), dependency-build (L2), agents-by-location + location
@@ -341,7 +341,7 @@ and read as the change record.
      instances/locations/versions) drives the triage hint — wide spread ⇒ likely
      code; concentrated ⇒ likely deployment.
 - **Resolved (2026-08-12):** **logical-agent status = count-by-status**, derived
-  **dynamically** (a `GROUP BY` over the materialized `agent_instances.status`,
+  **dynamically** (a `GROUP BY` over the materialized `agent_instance.status`,
   e.g. `12 failed / 30 warned / 4,210 healthy`), clickable to the reds. Compact
   single badge = worst-of-instances ("any red ⇒ red"). Same pattern reused at
   location and application level.
@@ -357,8 +357,8 @@ and read as the change record.
 - **Decision:**
   1. The **simulator emits ONLY telemetry** (traces/spans, metrics, events, logs);
      it does **not** pre-populate inventory tables.
-  2. **Sweepers DERIVE** `applications`, logical `agents`, `agent_instances`,
-     `models`, `tools`, `external_systems`, vector stores, and `agent_dependencies`
+  2. **Sweepers DERIVE** `application`, logical `agent`, `agent_instance`,
+     `models`, `tools`, `external_systems`, vector stores, and `agent_dependency`
      (OBSERVED) from the telemetry — the production-faithful discovery path.
   3. **Business metadata** not intrinsic to operations (`owner_team`,
      `cost_center`, `business_unit`, `business_purpose`, `governance_class`,
@@ -374,13 +374,13 @@ and read as the change record.
 - **Date:** 2026-08-13
 - **Area / Topic:** Inventory derivation, star-schema modeling
 - **Relationship:** CLARIFIES / AMENDS — L1 in the App/UX doc; §11.2.3–§11.2.8
-  (`applications`/`models`/`tools`/`external_systems`), §11.2.11, §11.3
-- **Question:** L1 only described building `agents`/`agent_instances`. How are
-  `applications`, `models`, `tools`, `external_systems` (and vector stores) built —
+  (`application`/`models`/`tools`/`external_systems`), §11.2.11, §11.3
+- **Question:** L1 only described building `agent`/`agent_instance`. How are
+  `application`, `models`, `tools`, `external_systems` (and vector stores) built —
   or are some just attributes?
 - **Decision:**
   1. **Both, by design.** Model/tool/system/application values are denormalized as
-     flat **attributes** on `otlp_spans`/`agent_executions` (PRD §11.3) for fast
+     flat **attributes** on `otlp_span`/`agent_execution` (PRD §11.3) for fast
      filter/group-by analytics. The sweeper *also* maintains **dimension tables**
      (distinct values + metadata not in telemetry) for the inventory catalog,
      dependency/topology views, ownership, and pricing joins. **Attributes power
@@ -388,8 +388,8 @@ and read as the change record.
   2. **L1 builds all inventory entities** (one pass, shares span traversal with
      L2), each by extracting distinct keys from telemetry attributes and UPSERTing
      with metadata from resource attrs / seeded pricing:
-     `applications` (from `application_id` + resource attrs), `agents`,
-     `agent_instances`, `models` (distinct provider/model/version from MODEL spans,
+     `application` (from `application_id` + resource attrs), `agent`,
+     `agent_instance`, `models` (distinct provider/model/version from MODEL spans,
      join `model_pricing`), `tools` (from TOOL spans' `tool_name`),
      `external_systems` (from `dependent_system` + HTTP/DB targets).
   3. **Vector stores** are modeled as **`external_systems`** rows
@@ -427,8 +427,8 @@ and read as the change record.
   **(B4)** SRS drops separate `models`/`tools`/`external_systems` tables (edges +
   attrs only) vs AD-011 dimension tables; **(B5)** SRS observed/registered
   metadata split vs AD-010 resource-attrs. **Gaps in SRS:** analytical tables
-  (`metric_rollups`/`platform_findings`/`analysis_baselines`/`sweeper_runs`/
-  `ai_analyses`), spread classifier, edge deployment. **SRS improvements to adopt:**
+  (`metric_rollup`/`platform_finding`/`analysis_baseline`/`sweeper_run`/
+  `ai_analysis`), spread classifier, edge deployment. **SRS improvements to adopt:**
   Arrow/WAL ingestion, `gen_ai.*` semconv, governance detail + tamper-evidence
   realism, `store_id` as location, SLO/health-calc transparency. Full matrix +
   naming table in **`Enterprise_AI_Agent_Observability_SRS_Addendum_Reconciliation.md`**.
@@ -450,7 +450,7 @@ and read as the change record.
      classifier; fills the AD-013 gap).
   2. **Security Evaluations** — a dedicated **adversarial-input** eval category
      (prompt injection / jailbreak / exfiltration / unsafe tool manipulation)
-     feeding Governance; rides `otlp_events` + governance + findings, no new core
+     feeding Governance; rides `otlp_event` + governance + findings, no new core
      table.
   3. **Alerting & On-Call Routing** *(the operational must-have; competitive
      review #1 gap)* — threshold/finding-based **alert rules** → evaluated
@@ -481,10 +481,14 @@ and read as the change record.
   2. **Fields are camelCase** (AOS translates to snake_case columns).
   3. **Tables are AOS-generated** from the singular class + `_tbl`
      (`AlertRule → alert_rule_tbl`, like `AIMessage → ai_message_tbl`).
-  4. The SRS Appendix A's **plural raw-Postgres** names (`alert_rules`, `agents`,
-     `otlp_spans`, …) are the **conceptual/logical** schema; implemented on AOS
-     they become singular classes + `_tbl` (`Agent`, `Application`, `AgentInstance`,
-     `OtlpSpan`). Align the other docs to this convention incrementally.
+  4. Entity/table names are **singular** throughout (matching the code, whose
+     classes are singular). Compound names are singular snake_case (`otlp_span`,
+     `agent_instance`, `agent_dependency`, `governance_policy`, …); the AOS classes
+     are singular PascalCase (`Agent`, `Application`, `AgentInstance`, `OtlpSpan`,
+     `AlertRule`, `FailureCluster`) generating `*_tbl` tables.
+- **Applied 2026-08-13:** ran the plural→singular sweep across all repo docs
+  (compound entity names globally + backtick-scoped single words + the SRS SQL
+  `application` table); common English words in prose were intentionally left.
 - **Status:** Accepted.
 
 <!--
@@ -513,10 +517,10 @@ Entry template (copy per decision):
 | 0.3 | 2026-08-12 | AD-001(a) resolved for V1 (agent emits `agent_id`); added AD-002 (deriving agent topology from span data). |
 | 0.4 | 2026-08-12 | Added AD-003 (scope: observed agents are Wendy's generic-framework agents, not Trillo AOS); corrected AD-001(b) and AD-002 accordingly; added scope note to §1. |
 | 0.5 | 2026-08-12 | Added AD-004 (session→1..N traces→span tree; span tree not agent-limited; Execution Trace Tree vs Agent Execution Tree projection); refined AD-002. |
-| 0.6 | 2026-08-12 | Added AD-005 (topology storage/retrieval: per-trace tree on-read from spans vs aggregate `agent_dependencies`; no new sweeper; non-sweeping fetch options). |
+| 0.6 | 2026-08-12 | Added AD-005 (topology storage/retrieval: per-trace tree on-read from spans vs aggregate `agent_dependency`; no new sweeper; non-sweeping fetch options). |
 | 0.7 | 2026-08-12 | Added AD-006 (production scale: columnar store via AOS APIs, sweeper-based incremental aggregation, union-over-time UPSERT, future combined sweep); amended AD-005 (removed materialized-view option). |
 | 0.8 | 2026-08-12 | Added AD-007 (dependency retirement: last-seen, query-side, deferred) and AD-008 (telemetry simulator requirements — companion document created). |
-| 0.9 | 2026-08-12 | Added AD-009 (status = latest trace status; trace status = worst severity; instance/location/logical status; error rate separate; agent-level dependency from `agent_dependencies` vs trace spans); created POC Application & UX Design companion doc (L1–L4 logic, U5–U9 UX, spread classifier). |
+| 0.9 | 2026-08-12 | Added AD-009 (status = latest trace status; trace status = worst severity; instance/location/logical status; error rate separate; agent-level dependency from `agent_dependency` vs trace spans); created POC Application & UX Design companion doc (L1–L4 logic, U5–U9 UX, spread classifier). |
 | 0.10 | 2026-08-13 | Resolved AD-009 logical-agent status = count-by-status (dynamic); added AD-010 (simulator emits telemetry only; sweepers derive inventory; business metadata via resource attrs; `model_pricing` seeded reference). Updated simulator §2 and App/UX §3/§7. |
 | 0.11 | 2026-08-13 | Added AD-011 (L1 builds all inventory entities: applications/models/tools/external_systems; dimension tables + denormalized attributes coexist; vector stores = external_systems subtype). Expanded App/UX L1. |
 | 0.12 | 2026-08-13 | AD-001(b) Accepted (agent emits semver/build tag as agent_version). No Provisional decisions remain. |
@@ -525,3 +529,4 @@ Entry template (copy per decision):
 | 0.15 | 2026-08-13 | Added AD-014 (pre-demo features: Failure Spread code-vs-deployment + Security Evaluations); feature-spec companion doc created. |
 | 0.16 | 2026-08-13 | AD-014 expanded to include Feature C (Alerting & On-Call Routing); feature-spec doc renamed to Pre_Demo_Feature_Specs and covers all three. |
 | 0.17 | 2026-08-13 | Added AD-015 (naming: AOS classes singular PascalCase -> _tbl; alert entities = AlertRule/Alert/AlertNotification/AlertChannel, FailureCluster). Applied singular class names in the feature spec. |
+| 0.18 | 2026-08-13 | Applied plural->singular entity/table naming sweep across all docs (AD-015): compound names singularized globally, backtick single words, SRS SQL application table; prose untouched. |

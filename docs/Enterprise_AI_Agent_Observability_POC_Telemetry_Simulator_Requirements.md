@@ -42,11 +42,11 @@ production-faithful OBSERVED discovery path).
    `tool_name`, `dependent_system`, retrieval target (**span** attrs).
 2. **`model_pricing`** — the one **reference table** the simulator seeds as dummy
    data (pricing is not telemetry).
-3. **DERIVED by platform sweepers (NOT the simulator):** `applications`, `agents`
-   (logical), `agent_instances`, `models`, `tools`, `external_systems`, vector
-   stores, `agent_dependencies` (OBSERVED), plus `metric_rollups`,
-   `platform_findings`, `analysis_baselines`, `ai_analyses`,
-   `optimization_recommendations`.
+3. **DERIVED by platform sweepers (NOT the simulator):** `application`, `agent`
+   (logical), `agent_instance`, `models`, `tools`, `external_systems`, vector
+   stores, `agent_dependency` (OBSERVED), plus `metric_rollup`,
+   `platform_finding`, `analysis_baseline`, `ai_analysis`,
+   `optimization_recommendation`.
 4. The **world config** (§11) still declares the intended agents/models/tools/
    dependencies — but only to **drive what the telemetry emits**, not as
    pre-written rows.
@@ -71,7 +71,7 @@ Each generated record carries full agent identity + deployment context.
   configurable region set — **East, West, South, North, Central** (extensible,
   e.g. per-country/metro). The exec dashboard shows thousands of active locations
   (§10.3), so the simulator must spread instances across many locations.
-- **Instances:** thousands of `agent_instances` per §11.5; a logical agent maps to
+- **Instances:** thousands of `agent_instance` per §11.5; a logical agent maps to
   many instances across locations/versions/environments, each with first/last
   seen.
 
@@ -151,7 +151,7 @@ location / time:
 
 ## 6. Events generation
 
-Emit `otlp_events` (§11.3.3) correlated by `trace_id`/`span_id`/`execution_id`:
+Emit `otlp_event` (§11.3.3) correlated by `trace_id`/`span_id`/`execution_id`:
 - **Exceptions** paired with every error span (+ correlated logs).
 - **Evaluations:** toxicity / hallucination / PII-leak with `eval_score` +
   `eval_label` (PASS/FAIL).
@@ -161,7 +161,7 @@ Emit `otlp_events` (§11.3.3) correlated by `trace_id`/`span_id`/`execution_id`:
 
 ## 7. Logs generation
 
-Emit `otlp_logs` (§11.3.4) with `severity_text` DEBUG..FATAL, correlated to
+Emit `otlp_log` (§11.3.4) with `severity_text` DEBUG..FATAL, correlated to
 traces/spans/executions. Failure scenarios include coherent diagnostic logs
 (connection retries, timeouts, stack traces in `log_attributes`) so the SRE
 root-cause flow (§13.5) has grounded evidence.
@@ -201,8 +201,8 @@ the demo needs and keeps them consistent across screens:
   targets the columnar store in production. Prefer **OTLP** payloads (what real
   LangChain/OpenInference/OpenLLMetry agents emit) so the ingest path is
   production-faithful, with a direct-insert fast path for bulk backfill.
-- **Schema conformance:** every record maps to `otlp_spans` / `otlp_metrics` /
-  `otlp_events` / `otlp_logs` (+ fixtures), including the denormalized business
+- **Schema conformance:** every record maps to `otlp_span` / `otlp_metric` /
+  `otlp_event` / `otlp_log` (+ fixtures), including the denormalized business
   dimensions and the `raw_attributes`/`*_json` catch-alls.
 
 ## 11. Configuration (the simulator "world spec")

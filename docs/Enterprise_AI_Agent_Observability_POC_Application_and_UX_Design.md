@@ -38,7 +38,7 @@ issue (usually version-correlated). The app surfaces this via a failure cluster'
 - **Trace status** = the **highest severity** across the trace's spans/events:
   `ERROR > WARNING > HEALTHY`. (A trace with a warning but no error = `WARNING`.)
 - **Instance status** = the status of that instance's **latest trace** (by end
-  time). It is the **freshest** signal, materialized on `agent_instances.status`
+  time). It is the **freshest** signal, materialized on `agent_instance.status`
   and refreshed by the sweeper each run.
 - **Location status** = the **worst** (highest severity) status among the
   instances at that location.
@@ -46,7 +46,7 @@ issue (usually version-correlated). The app surfaces this via a failure cluster'
   metric, NOT the status badge.
 - **Logical-agent status** — **not a single materialized value**; derived
   **dynamically** as a **count-by-status** over its instances (a `GROUP BY` over
-  `agent_instances.status`, e.g. `12 failed / 30 warned / 4,210 healthy`),
+  `agent_instance.status`, e.g. `12 failed / 30 warned / 4,210 healthy`),
   clickable to drill to the instances of a given status. A compact single badge,
   when needed, uses **worst-of-instances** ("any red ⇒ red"). The same
   count-by-status pattern applies at **location** and **application** level. Cheap
@@ -63,8 +63,8 @@ attributes** (AD-010) or the seeded `model_pricing` reference. All UPSERTs are
 incremental (watermark) and cheap — the distinct-sets are small and bounded.
 
 **Dimension tables vs. attributes (design note).** Model/tool/system/application
-values are ALSO denormalized as flat attributes on `otlp_spans` /
-`agent_executions` (PRD §11.3) to drive fast filter/group-by analytics. The
+values are ALSO denormalized as flat attributes on `otlp_span` /
+`agent_execution` (PRD §11.3) to drive fast filter/group-by analytics. The
 sweeper *additionally* maintains **dimension tables** — distinct values + the
 metadata that telemetry doesn't carry — for the inventory catalog, dependency/
 topology views, ownership, and pricing joins. **Attributes power analytics;
@@ -72,16 +72,16 @@ dimension tables power inventory + hold metadata.** Both coexist by design.
 
 Entities built (one pass; shares the span traversal with L2):
 
-- **`applications`** — distinct `application_id` (+ `application_name`); metadata
+- **`application`** — distinct `application_id` (+ `application_name`); metadata
   (`business_unit`, `owner_team`, `cost_center`, `environment`) from **resource
   attributes**. UPSERT; app-level status = count-by-status over its agents
   (dynamic, §3).
-- **`agents`** (logical) — distinct `(agent_id, agent_name, application_id)` →
+- **`agent`** (logical) — distinct `(agent_id, agent_name, application_id)` →
   UPSERT; set `current_version` (latest `agent_version` seen), `last_seen_at`,
   `status` (§3); `owner_team`/`business_purpose`/`cost_center`/`governance_class`
   from resource attrs; **metadata-completeness flags** when those are absent (the
   Inventory/Metadata scenario).
-- **`agent_instances`** — distinct `(agent_id, service_instance_id, location_id,
+- **`agent_instance`** — distinct `(agent_id, service_instance_id, location_id,
   gcp_project_id/cluster/namespace/pod OR edge id, agent_version, environment)` →
   UPSERT; `first_seen_at`/`last_seen_at`; `status` = last-trace status of that
   instance (§3). One logical agent → many instances.
@@ -108,13 +108,13 @@ metadata-completeness findings.
 Per Addendum AD-002 / AD-005 / AD-006: project each trace's span tree onto agents
 (attribute each non-agent span — model/tool/retrieval/HTTP/DB — to its **nearest
 ancestor AGENT span**; agent→agent edges from nested agent spans), then **UPSERT**
-edges into `agent_dependencies` accumulating the **union over time** with
+edges into `agent_dependency` accumulating the **union over time** with
 `first_seen_at`/`last_seen_at`. Tool spans contribute the chained **tool→system**
 edge via `dependent_system`. Retirement is query-side on `last_seen` (AD-007).
 
 ### 4.3 (L3) Agents grouped by location + location status
 
-From `agent_instances` (each has `location_id`, `status`, `agent_id`):
+From `agent_instance` (each has `location_id`, `status`, `agent_id`):
 - Group by `location_id`. For each location output:
   `{ location_id, distinct_agent_count, instance_count, location_status }` where
   `location_status = MAX_severity(status of instances at that location)`
@@ -126,12 +126,12 @@ From `agent_instances` (each has `location_id`, `status`, `agent_id`):
 
 ### 4.4 (L4) Agent dependency tree — fetch
 
-From `agent_dependencies` for the selected `agent_id`: return its edges (models,
+From `agent_dependency` for the selected `agent_id`: return its edges (models,
 tools, systems, vector stores, sub-agents), **recursing through agent→agent
 edges** to build the subtree (cycle-guarded), filtered to **active** edges
 (query-side `last_seen` recency, AD-007). This is the **aggregate** topology
 ("what this agent connects to over time"), rendered as a span-style tree (§5.4).
-Distinct from a **trace's** span tree (one execution, from `otlp_spans`).
+Distinct from a **trace's** span tree (one execution, from `otlp_span`).
 
 ### 4.5 (Support) Failure cluster + spread classifier
 
@@ -186,7 +186,7 @@ Because the two look similar, differentiate explicitly:
 
 Render the L4 aggregate dependency tree as an **indented, span-style** visual
 (agent → model / tool → system / sub-agent → …). This answers *"what this agent
-connects to."* It is sourced from `agent_dependencies`, **not** a trace. The
+connects to."* It is sourced from `agent_dependency`, **not** a trace. The
 **trace-level** span view (§5.6) is the separate "what happened in one execution."
 
 ### 5.5 (U10/U11) Trace scoping — agent vs instance
@@ -208,8 +208,8 @@ prompt/model/tool args/response/exception/logs (§5.3 of PRD).
 
 ## 6. Data touchpoints
 
-`agents`, `agent_instances`, `agent_dependencies`, `otlp_spans` (per-trace),
-`platform_findings` / failure clusters, `metric_rollups` (error rate, latency,
+`agent`, `agent_instance`, `agent_dependency`, `otlp_span` (per-trace),
+`platform_finding` / failure clusters, `metric_rollup` (error rate, latency,
 cost). All reads go through the Trillo AOS APIs over the store (columnar in prod,
 Postgres in POC).
 

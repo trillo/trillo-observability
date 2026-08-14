@@ -53,10 +53,10 @@ The platform ingests high-throughput OpenTelemetry Protocol (OTLP) gRPC/HTTP str
              ├──► [ Inventory Discovery and Dependency Updates ]
              │
              └──► [ PostgreSQL Telemetry Storage ]
-                    ├── otlp_spans
-                    ├── otlp_metrics
-                    ├── otlp_events
-                    └── otlp_logs
+                    ├── otlp_span
+                    ├── otlp_metric
+                    ├── otlp_event
+                    └── otlp_log
 ```
 
 The durable queue or write-ahead mechanism prevents acknowledged telemetry from being lost if an ingestion worker is restarted before database persistence completes.
@@ -76,8 +76,8 @@ To support discovery across large numbers of stateless runtime instances and sto
 2. The platform resolves the logical agent using `agent_id` or a configured identity mapping.
 3. The platform resolves the runtime instance using `agent_id + service.instance.id`.
 4. An in-memory cache is checked for the logical agent and instance identities.
-5. On cache miss, the platform performs idempotent `UPSERT` operations into `agent_inventory` and `agent_instances`.
-6. The platform records observed model, tool, system, vector-store, and agent-to-agent dependencies in `agent_dependencies`.
+5. On cache miss, the platform performs idempotent `UPSERT` operations into `agent_inventory` and `agent_instance`.
+6. The platform records observed model, tool, system, vector-store, and agent-to-agent dependencies in `agent_dependency`.
 7. The platform updates `first_seen_at`, `last_seen_at`, version, environment, and runtime health indicators.
 8. Registered business metadata is merged from platform configuration, CMDB, service catalog, deployment metadata, or administrative entry.
 9. Agents that are observed but lack required ownership or purpose metadata are marked **Unregistered** or **Metadata Incomplete** for governance follow-up.
@@ -627,7 +627,7 @@ The following schema provides the core logical design. Production deployment may
 -- =============================================================================
 -- 1. APPLICATION CATALOG
 -- =============================================================================
-CREATE TABLE applications (
+CREATE TABLE application (
     application_id VARCHAR(128) PRIMARY KEY,
     application_name VARCHAR(256) NOT NULL,
     owner_team VARCHAR(128),
@@ -639,9 +639,9 @@ CREATE TABLE applications (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_applications_name ON applications(application_name);
-CREATE INDEX idx_applications_owner ON applications(owner_team);
-CREATE INDEX idx_applications_cost_center ON applications(cost_center);
+CREATE INDEX idx_applications_name ON application(application_name);
+CREATE INDEX idx_applications_owner ON application(owner_team);
+CREATE INDEX idx_applications_cost_center ON application(cost_center);
 
 -- =============================================================================
 -- 2. LOGICAL AGENT INVENTORY
@@ -649,7 +649,7 @@ CREATE INDEX idx_applications_cost_center ON applications(cost_center);
 CREATE TABLE agent_inventory (
     agent_id VARCHAR(128) PRIMARY KEY,
     agent_name VARCHAR(256) NOT NULL,
-    application_id VARCHAR(128) REFERENCES applications(application_id),
+    application_id VARCHAR(128) REFERENCES application(application_id),
     service_name VARCHAR(256),
     owner_team VARCHAR(128),
     owner_email VARCHAR(256),
@@ -677,7 +677,7 @@ CREATE INDEX idx_agent_inventory_registration ON agent_inventory(registration_st
 -- =============================================================================
 -- 3. AGENT RUNTIME INSTANCES
 -- =============================================================================
-CREATE TABLE agent_instances (
+CREATE TABLE agent_instance (
     agent_instance_id BIGSERIAL PRIMARY KEY,
     agent_id VARCHAR(128) NOT NULL REFERENCES agent_inventory(agent_id),
     service_instance_id VARCHAR(256) NOT NULL,
@@ -695,22 +695,22 @@ CREATE TABLE agent_instances (
     UNIQUE (agent_id, service_instance_id)
 );
 
-CREATE INDEX idx_agent_instances_agent ON agent_instances(agent_id);
-CREATE INDEX idx_agent_instances_store ON agent_instances(store_id);
-CREATE INDEX idx_agent_instances_version ON agent_instances(service_version);
-CREATE INDEX idx_agent_instances_last_seen ON agent_instances(last_seen_at DESC);
+CREATE INDEX idx_agent_instance_agent ON agent_instance(agent_id);
+CREATE INDEX idx_agent_instance_store ON agent_instance(store_id);
+CREATE INDEX idx_agent_instance_version ON agent_instance(service_version);
+CREATE INDEX idx_agent_instance_last_seen ON agent_instance(last_seen_at DESC);
 
 -- =============================================================================
 -- 4. AGENT DEPENDENCIES
 -- =============================================================================
-CREATE TABLE agent_dependencies (
+CREATE TABLE agent_dependency (
     dependency_id BIGSERIAL PRIMARY KEY,
     agent_id VARCHAR(128) NOT NULL REFERENCES agent_inventory(agent_id),
     dependency_type VARCHAR(32) NOT NULL,
         -- MODEL, TOOL, SYSTEM, VECTOR_STORE, AGENT
     dependency_key VARCHAR(256) NOT NULL,
     dependency_name VARCHAR(256) NOT NULL,
-    parent_dependency_id BIGINT REFERENCES agent_dependencies(dependency_id),
+    parent_dependency_id BIGINT REFERENCES agent_dependency(dependency_id),
     relationship_type VARCHAR(64) DEFAULT 'USES',
     discovery_source VARCHAR(32) NOT NULL,
         -- OBSERVED, REGISTERED, INFERRED
@@ -722,14 +722,14 @@ CREATE TABLE agent_dependencies (
     UNIQUE (agent_id, dependency_type, dependency_key)
 );
 
-CREATE INDEX idx_agent_dependencies_agent ON agent_dependencies(agent_id);
-CREATE INDEX idx_agent_dependencies_type ON agent_dependencies(dependency_type);
-CREATE INDEX idx_agent_dependencies_name ON agent_dependencies(dependency_name);
+CREATE INDEX idx_agent_dependency_agent ON agent_dependency(agent_id);
+CREATE INDEX idx_agent_dependency_type ON agent_dependency(dependency_type);
+CREATE INDEX idx_agent_dependency_name ON agent_dependency(dependency_name);
 
 -- =============================================================================
 -- 5. OTLP SPANS: EXECUTION, MODEL, TOOL, AND RETRIEVAL TRACES
 -- =============================================================================
-CREATE TABLE otlp_spans (
+CREATE TABLE otlp_span (
     span_id VARCHAR(64) PRIMARY KEY,
     trace_id VARCHAR(64) NOT NULL,
     parent_span_id VARCHAR(64),
@@ -789,21 +789,21 @@ CREATE TABLE otlp_spans (
     raw_attributes JSONB DEFAULT '{}'::jsonb
 );
 
-CREATE INDEX idx_spans_trace ON otlp_spans(trace_id);
-CREATE INDEX idx_spans_execution ON otlp_spans(execution_id);
-CREATE INDEX idx_spans_time ON otlp_spans(start_time DESC);
-CREATE INDEX idx_spans_application ON otlp_spans(application_id);
-CREATE INDEX idx_spans_agent ON otlp_spans(agent_id);
-CREATE INDEX idx_spans_status ON otlp_spans(status_code);
-CREATE INDEX idx_spans_model ON otlp_spans(response_model);
-CREATE INDEX idx_spans_tool ON otlp_spans(tool_name);
-CREATE INDEX idx_spans_store ON otlp_spans(store_id);
-CREATE INDEX idx_spans_user_session ON otlp_spans(user_id, session_id);
+CREATE INDEX idx_spans_trace ON otlp_span(trace_id);
+CREATE INDEX idx_spans_execution ON otlp_span(execution_id);
+CREATE INDEX idx_spans_time ON otlp_span(start_time DESC);
+CREATE INDEX idx_spans_application ON otlp_span(application_id);
+CREATE INDEX idx_spans_agent ON otlp_span(agent_id);
+CREATE INDEX idx_spans_status ON otlp_span(status_code);
+CREATE INDEX idx_spans_model ON otlp_span(response_model);
+CREATE INDEX idx_spans_tool ON otlp_span(tool_name);
+CREATE INDEX idx_spans_store ON otlp_span(store_id);
+CREATE INDEX idx_spans_user_session ON otlp_span(user_id, session_id);
 
 -- =============================================================================
 -- 6. OTLP METRICS: RAW OR AGGREGATED METRIC POINTS
 -- =============================================================================
-CREATE TABLE otlp_metrics (
+CREATE TABLE otlp_metric (
     metric_id BIGSERIAL PRIMARY KEY,
     metric_name VARCHAR(256) NOT NULL,
     metric_time TIMESTAMPTZ NOT NULL,
@@ -827,16 +827,16 @@ CREATE TABLE otlp_metrics (
     dimensions JSONB DEFAULT '{}'::jsonb
 );
 
-CREATE INDEX idx_metrics_name_time ON otlp_metrics(metric_name, metric_time DESC);
-CREATE INDEX idx_metrics_application ON otlp_metrics(application_id);
-CREATE INDEX idx_metrics_agent ON otlp_metrics(agent_id);
-CREATE INDEX idx_metrics_model ON otlp_metrics(model_name);
-CREATE INDEX idx_metrics_owner ON otlp_metrics(owner_team);
+CREATE INDEX idx_metrics_name_time ON otlp_metric(metric_name, metric_time DESC);
+CREATE INDEX idx_metrics_application ON otlp_metric(application_id);
+CREATE INDEX idx_metrics_agent ON otlp_metric(agent_id);
+CREATE INDEX idx_metrics_model ON otlp_metric(model_name);
+CREATE INDEX idx_metrics_owner ON otlp_metric(owner_team);
 
 -- =============================================================================
 -- 7. OTLP EVENTS: EXCEPTIONS, EVALUATIONS, AND EXECUTION EVENTS
 -- =============================================================================
-CREATE TABLE otlp_events (
+CREATE TABLE otlp_event (
     event_id BIGSERIAL PRIMARY KEY,
     trace_id VARCHAR(64),
     span_id VARCHAR(64),
@@ -860,16 +860,16 @@ CREATE TABLE otlp_events (
     attributes JSONB DEFAULT '{}'::jsonb
 );
 
-CREATE INDEX idx_events_name_time ON otlp_events(event_name, event_time DESC);
-CREATE INDEX idx_events_trace ON otlp_events(trace_id);
-CREATE INDEX idx_events_agent ON otlp_events(agent_id);
-CREATE INDEX idx_events_user_session ON otlp_events(user_id, session_id);
-CREATE INDEX idx_events_policy_decision ON otlp_events(policy_decision);
+CREATE INDEX idx_events_name_time ON otlp_event(event_name, event_time DESC);
+CREATE INDEX idx_events_trace ON otlp_event(trace_id);
+CREATE INDEX idx_events_agent ON otlp_event(agent_id);
+CREATE INDEX idx_events_user_session ON otlp_event(user_id, session_id);
+CREATE INDEX idx_events_policy_decision ON otlp_event(policy_decision);
 
 -- =============================================================================
 -- 8. OTLP LOGS: APPLICATION AND CONTAINER DIAGNOSTICS
 -- =============================================================================
-CREATE TABLE otlp_logs (
+CREATE TABLE otlp_log (
     log_id BIGSERIAL PRIMARY KEY,
     log_time TIMESTAMPTZ NOT NULL,
     trace_id VARCHAR(64),
@@ -890,11 +890,11 @@ CREATE TABLE otlp_logs (
     log_attributes JSONB DEFAULT '{}'::jsonb
 );
 
-CREATE INDEX idx_logs_time ON otlp_logs(log_time DESC);
-CREATE INDEX idx_logs_trace ON otlp_logs(trace_id);
-CREATE INDEX idx_logs_execution ON otlp_logs(execution_id);
-CREATE INDEX idx_logs_severity ON otlp_logs(severity_text);
-CREATE INDEX idx_logs_agent ON otlp_logs(agent_id);
+CREATE INDEX idx_logs_time ON otlp_log(log_time DESC);
+CREATE INDEX idx_logs_trace ON otlp_log(trace_id);
+CREATE INDEX idx_logs_execution ON otlp_log(execution_id);
+CREATE INDEX idx_logs_severity ON otlp_log(severity_text);
+CREATE INDEX idx_logs_agent ON otlp_log(agent_id);
 
 -- =============================================================================
 -- 9. MODEL PRICING REGISTRY
@@ -922,7 +922,7 @@ CREATE INDEX idx_model_pricing_lookup
 -- =============================================================================
 -- 10. GOVERNANCE POLICIES AND VERSIONS
 -- =============================================================================
-CREATE TABLE governance_policies (
+CREATE TABLE governance_policy (
     policy_id VARCHAR(128) PRIMARY KEY,
     policy_name VARCHAR(256) NOT NULL,
     description TEXT,
@@ -933,8 +933,8 @@ CREATE TABLE governance_policies (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE governance_policy_versions (
-    policy_id VARCHAR(128) NOT NULL REFERENCES governance_policies(policy_id),
+CREATE TABLE governance_policy_version (
+    policy_id VARCHAR(128) NOT NULL REFERENCES governance_policy(policy_id),
     policy_version VARCHAR(64) NOT NULL,
     action VARCHAR(32) NOT NULL,
         -- ALLOW, WARN, REDACT, REQUIRE_APPROVAL, BLOCK
@@ -948,7 +948,7 @@ CREATE TABLE governance_policy_versions (
 -- =============================================================================
 -- 11. GOVERNANCE DECISIONS
 -- =============================================================================
-CREATE TABLE governance_decisions (
+CREATE TABLE governance_decision (
     decision_id BIGSERIAL PRIMARY KEY,
     decision_time TIMESTAMPTZ NOT NULL,
     trace_id VARCHAR(64),
@@ -966,15 +966,15 @@ CREATE TABLE governance_decisions (
     explanation TEXT
 );
 
-CREATE INDEX idx_governance_decisions_time ON governance_decisions(decision_time DESC);
-CREATE INDEX idx_governance_decisions_trace ON governance_decisions(trace_id);
-CREATE INDEX idx_governance_decisions_policy ON governance_decisions(policy_id, policy_version);
-CREATE INDEX idx_governance_decisions_agent ON governance_decisions(agent_id);
+CREATE INDEX idx_governance_decision_time ON governance_decision(decision_time DESC);
+CREATE INDEX idx_governance_decision_trace ON governance_decision(trace_id);
+CREATE INDEX idx_governance_decision_policy ON governance_decision(policy_id, policy_version);
+CREATE INDEX idx_governance_decision_agent ON governance_decision(agent_id);
 
 -- =============================================================================
 -- 12. ADMINISTRATIVE AUDIT EVENTS
 -- =============================================================================
-CREATE TABLE administrative_audit_events (
+CREATE TABLE administrative_audit_event (
     audit_event_id BIGSERIAL PRIMARY KEY,
     event_time TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     actor_user_id VARCHAR(256) NOT NULL,
@@ -990,14 +990,14 @@ CREATE TABLE administrative_audit_events (
     event_hash VARCHAR(128) NOT NULL
 );
 
-CREATE INDEX idx_admin_audit_time ON administrative_audit_events(event_time DESC);
-CREATE INDEX idx_admin_audit_actor ON administrative_audit_events(actor_user_id);
-CREATE INDEX idx_admin_audit_resource ON administrative_audit_events(resource_type, resource_id);
+CREATE INDEX idx_admin_audit_time ON administrative_audit_event(event_time DESC);
+CREATE INDEX idx_admin_audit_actor ON administrative_audit_event(actor_user_id);
+CREATE INDEX idx_admin_audit_resource ON administrative_audit_event(resource_type, resource_id);
 
 -- =============================================================================
 -- 13. OPTIMIZATION RECOMMENDATIONS
 -- =============================================================================
-CREATE TABLE optimization_recommendations (
+CREATE TABLE optimization_recommendation (
     recommendation_id BIGSERIAL PRIMARY KEY,
     generated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     application_id VARCHAR(128),
@@ -1019,9 +1019,9 @@ CREATE TABLE optimization_recommendations (
     validated_savings_usd NUMERIC(18,2)
 );
 
-CREATE INDEX idx_optimization_agent ON optimization_recommendations(agent_id);
-CREATE INDEX idx_optimization_status ON optimization_recommendations(status);
-CREATE INDEX idx_optimization_savings ON optimization_recommendations(estimated_monthly_savings_usd DESC);
+CREATE INDEX idx_optimization_agent ON optimization_recommendation(agent_id);
+CREATE INDEX idx_optimization_status ON optimization_recommendation(status);
+CREATE INDEX idx_optimization_savings ON optimization_recommendation(estimated_monthly_savings_usd DESC);
 ```
 
 ---

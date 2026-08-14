@@ -87,7 +87,7 @@ The platform shall:
   `agent_version` (regression signal, ties to the Performance Regression
   Analyzer, §13.3).
 - For DEPENDENCY clusters, resolve **impacted logical agents** — the agents whose
-  `agent_dependencies` include the failing tool/system (reverse-dependency
+  `agent_dependency` include the failing tool/system (reverse-dependency
   lookup).
 - Rank clusters by severity × blast radius, and expose them as **findings**.
 - Feed **Feature C (Alerting)**: a cluster crossing a spread/severity threshold is
@@ -117,9 +117,9 @@ New AOS class **`FailureCluster`** (`failure_cluster_tbl`; built by the sweeper;
 | `first_seen_at` / `last_seen_at` | TIMESTAMPTZ | |
 | `status` | VARCHAR(32) | Open / Acknowledged / Resolved |
 
-No change to `otlp_spans` — the spread is derived from existing dimensions
+No change to `otlp_span` — the spread is derived from existing dimensions
 (`agent_id`, `service_instance_id`, `store_id`, `agent_version`, `cluster_name`,
-`dependent_system`). Impacted-agents uses the existing `agent_dependencies`
+`dependent_system`). Impacted-agents uses the existing `agent_dependency`
 (reverse lookup on `dependency_key`).
 
 ### 2.5 Background Functions and Agents
@@ -131,7 +131,7 @@ No change to `otlp_spans` — the spread is derived from existing dimensions
   the spread vector + `root_cause_class` + `version_correlated` from the cluster's
   member executions. Facts, not inference.
 - **Impacted-Agents Resolver** *(function)* — reverse-dependency lookup over
-  `agent_dependencies` for DEPENDENCY clusters.
+  `agent_dependency` for DEPENDENCY clusters.
 - **SRE Root Cause Agent** *(existing AI agent)* — consumes a bounded evidence
   package (cluster + spread + impacted agents + sample traces + baseline) and
   produces a plain-language diagnosis that **explicitly names the class** ("code
@@ -215,11 +215,11 @@ The platform shall:
 ### 3.4 Data Model Changes
 
 Rides existing tables — minimal additions:
-- **`otlp_events`** (SRS) — reuse `eval_metric_name` / `eval_score` /
+- **`otlp_event`** (SRS) — reuse `eval_metric_name` / `eval_score` /
   `eval_label`; add `eval_category` (`security`) in `attributes` (or as a column).
-- **`governance_policies`** — add security `policy_type`(s)
+- **`governance_policy`** — add security `policy_type`(s)
   (`prompt_injection_protection`, `jailbreak_protection`).
-- **`governance_decisions`** — already captures policy decision + version for the
+- **`governance_decision`** — already captures policy decision + version for the
   execution; no change.
 - **Findings** — `finding_type = SECURITY` (extends the findings model).
 - No new core table required.
@@ -228,7 +228,7 @@ Rides existing tables — minimal additions:
 
 - **Security Evaluation Sweeper** *(function, near-real-time / every 5 min)* —
   runs detectors over recent executions' inputs + tool-args; emits security
-  `otlp_events`; creates SECURITY findings on FAIL; updates rollups.
+  `otlp_event`; creates SECURITY findings on FAIL; updates rollups.
   - **Detectors:** fast heuristics/patterns first (known injection phrases,
     system-prompt-echo, instruction-override markers), then escalate ambiguous
     cases to the agent below.

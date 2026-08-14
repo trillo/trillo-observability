@@ -675,18 +675,18 @@ This explicitly supports the POC architectural principle:
 
 The POC uses both a logical execution entity and OTel spans:
 
-- `agent_executions` is the application-level root used by the UI for a single end-to-end agent execution.
-- `otlp_spans` contains the actual trace tree. All spans sharing the same `trace_id` belong to the same distributed trace.
-- The root span for the execution should carry the same `execution_id` and `trace_id` as the `agent_executions` row.
+- `agent_execution` is the application-level root used by the UI for a single end-to-end agent execution.
+- `otlp_span` contains the actual trace tree. All spans sharing the same `trace_id` belong to the same distributed trace.
+- The root span for the execution should carry the same `execution_id` and `trace_id` as the `agent_execution` row.
 - `parent_span_id` establishes the waterfall/tree relationship among agent, model, tool, retrieval, and orchestration spans.
-- `otlp_logs` and `otlp_events` correlate back to the execution using `execution_id`, `trace_id`, and, when available, `span_id`.
-- `otlp_metrics` stores metric points or pre-aggregated metric values and is dimensioned independently for dashboard and trend queries.
+- `otlp_log` and `otlp_event` correlate back to the execution using `execution_id`, `trace_id`, and, when available, `span_id`.
+- `otlp_metric` stores metric points or pre-aggregated metric values and is dimensioned independently for dashboard and trend queries.
 
 This separation gives the POC a clean UI object while preserving OTel-compatible telemetry semantics.
 
 ---
 
-### 11.2.3 `applications`
+### 11.2.3 `application`
 
 Represents a business application containing one or more logical agents.
 
@@ -704,7 +704,7 @@ Key fields:
 - `created_at`
 - `updated_at`
 
-### 11.2.4 `agents`
+### 11.2.4 `agent`
 
 Represents a logical agent type independent of runtime instances.
 
@@ -729,7 +729,7 @@ Key fields:
 
 The inventory UI should operate primarily on this entity rather than displaying every runtime instance as a separate agent.
 
-### 11.2.5 `agent_instances`
+### 11.2.5 `agent_instance`
 
 Represents an observed runtime deployment of a logical agent.
 
@@ -797,7 +797,7 @@ Key fields:
 - `status`
 - `metadata_json`
 
-### 11.2.9 `agent_dependencies`
+### 11.2.9 `agent_dependency`
 
 Represents the operational dependency graph for an agent.
 
@@ -820,7 +820,7 @@ Key fields:
 
 This entity supports the topology view used in inventory, reliability investigation, and impacted-system analysis.
 
-### 11.2.10 `agent_executions`
+### 11.2.10 `agent_execution`
 
 Represents one end-to-end agent execution and is the common application drill-down object across reliability, latency, cost, token, and governance workflows.
 
@@ -863,16 +863,16 @@ The tables intentionally include frequently queried business dimensions as flat 
 
 Raw or unmapped OTel attributes should remain available in JSON fields so the POC is not limited to the explicitly modeled columns.
 
-### 11.3.1 `otlp_spans` — Traces, Agent Execution, Model Calls, Tool Calls, Retrieval
+### 11.3.1 `otlp_span` — Traces, Agent Execution, Model Calls, Tool Calls, Retrieval
 
-`otlp_spans` represents individual spans within a distributed trace. A complete trace is reconstructed from all rows sharing the same `trace_id`; `parent_span_id` defines nesting.
+`otlp_span` represents individual spans within a distributed trace. A complete trace is reconstructed from all rows sharing the same `trace_id`; `parent_span_id` defines nesting.
 
 | Field | PostgreSQL Type | Purpose |
 | :--- | :--- | :--- |
 | `span_id` | `VARCHAR(64)` | Primary span identifier |
 | `trace_id` | `VARCHAR(64)` | Distributed trace identifier |
 | `parent_span_id` | `VARCHAR(64)` | Parent span for waterfall/tree reconstruction |
-| `execution_id` | `VARCHAR(128)` | Links to logical `agent_executions` |
+| `execution_id` | `VARCHAR(128)` | Links to logical `agent_execution` |
 | `name` | `VARCHAR(512)` | Span name, e.g. model chat or tool execution |
 | `span_kind` | `VARCHAR(32)` | OTel span kind |
 | `span_category` | `VARCHAR(32)` | `AGENT`, `MODEL`, `TOOL`, `RETRIEVAL`, `ORCHESTRATION`, `OTHER` |
@@ -928,9 +928,9 @@ Recommended indexes for the POC:
 - `location_id`
 - `(user_id, session_id)`
 
-### 11.3.2 `otlp_metrics` — Raw or Aggregated Metric Points
+### 11.3.2 `otlp_metric` — Raw or Aggregated Metric Points
 
-`otlp_metrics` stores OTel metric points or intentionally pre-aggregated synthetic metric values used for time-series dashboards. It may contain standard OTel/GenAI metrics plus POC-specific derived metrics.
+`otlp_metric` stores OTel metric points or intentionally pre-aggregated synthetic metric values used for time-series dashboards. It may contain standard OTel/GenAI metrics plus POC-specific derived metrics.
 
 | Field | PostgreSQL Type | Purpose |
 | :--- | :--- | :--- |
@@ -973,9 +973,9 @@ Typical POC metrics include:
 - adoption/activity volume
 - governance pass/fail counts
 
-### 11.3.3 `otlp_events` — Exceptions, Evaluations, Policy and Execution Events
+### 11.3.3 `otlp_event` — Exceptions, Evaluations, Policy and Execution Events
 
-`otlp_events` stores normalized execution events that should be independently searchable and correlatable. For the POC this includes exceptions, evaluation results, guardrail outcomes, and other meaningful execution events.
+`otlp_event` stores normalized execution events that should be independently searchable and correlatable. For the POC this includes exceptions, evaluation results, guardrail outcomes, and other meaningful execution events.
 
 | Field | PostgreSQL Type | Purpose |
 | :--- | :--- | :--- |
@@ -1006,9 +1006,9 @@ Recommended indexes for the POC:
 - `(user_id, session_id)`
 - `policy_decision`
 
-### 11.3.4 `otlp_logs` — Application, Agent, and Container Diagnostics
+### 11.3.4 `otlp_log` — Application, Agent, and Container Diagnostics
 
-`otlp_logs` stores diagnostic log records used for reliability investigation and AI SRE analysis.
+`otlp_log` stores diagnostic log records used for reliability investigation and AI SRE analysis.
 
 | Field | PostgreSQL Type | Purpose |
 | :--- | :--- | :--- |
@@ -1041,12 +1041,12 @@ Recommended indexes for the POC:
 
 For synthetic POC data, the following rules should be enforced so all seven scenarios remain internally consistent:
 
-1. Every `agent_executions` record should have one root span in `otlp_spans` with the same `execution_id` and `trace_id`.
+1. Every `agent_execution` record should have one root span in `otlp_span` with the same `execution_id` and `trace_id`.
 2. Every child span should reference a valid `parent_span_id` within the same trace unless it intentionally represents a distributed boundary.
 3. Failure scenarios should include an error span plus correlated exception/event and one or more diagnostic log records where appropriate.
 4. Model spans should carry model/provider, token, latency, and cost attributes sufficient for Scenarios 3-5.
 5. Tool spans should carry `tool_name` and `dependent_system` so the UI can identify impacted systems.
-6. Governance demo executions should include evaluation/policy records in `otlp_events` and/or `governance_evaluations`.
+6. Governance demo executions should include evaluation/policy records in `otlp_event` and/or `governance_evaluation`.
 7. `application_id`, `agent_id`, `agent_version`, `location_id`, `user_id`, and `session_id` should be consistently propagated across telemetry rows when known.
 8. Historical dashboard values should reconcile with the underlying synthetic spans/metrics for the selected time window.
 9. Prompt/output capture should respect the configured masking and retention policy even in synthetic data.
@@ -1056,9 +1056,9 @@ For synthetic POC data, the following rules should be enforced so all seven scen
 
 ## 11.4 Analytical, Governance, and Background-Processing Entities
 
-### 11.4.1 `metric_rollups`
+### 11.4.1 `metric_rollup`
 
-Stores dashboard-oriented time-window aggregates derived from `otlp_spans`, `otlp_metrics`, `otlp_events`, and `agent_executions`.
+Stores dashboard-oriented time-window aggregates derived from `otlp_span`, `otlp_metric`, `otlp_event`, and `agent_execution`.
 
 Key fields:
 
@@ -1079,7 +1079,7 @@ Key fields:
 
 Examples include success rate, error rate, P50/P90/P95/P99 latency, token consumption, cost, and execution volume.
 
-### 11.4.2 `platform_findings`
+### 11.4.2 `platform_finding`
 
 Represents a deterministic or analytical finding created by a sweeper, processor, governance evaluation, or user-triggered analysis.
 
@@ -1102,7 +1102,7 @@ Key fields:
 
 Findings are the primary bridge between deterministic background processing and AI-assisted investigation.
 
-### 11.4.3 `ai_analyses`
+### 11.4.3 `ai_analysis`
 
 Stores the output of specialized AI agents such as the SRE Root Cause Agent, Token Optimization Agent, Governance Analysis Agent, or Executive SRE Summary Agent.
 
@@ -1124,7 +1124,7 @@ Key fields:
 
 The AI agent should reason over a bounded evidence package and may call approved Trillo AOS functions as tools for additional facts or calculations.
 
-### 11.4.4 `governance_policies`
+### 11.4.4 `governance_policy`
 
 Represents configurable governance controls.
 
@@ -1143,9 +1143,9 @@ Key fields:
 - `created_at`
 - `updated_at`
 
-### 11.4.5 `governance_evaluations`
+### 11.4.5 `governance_evaluation`
 
-Represents the outcome of applying a policy or guardrail to an execution. This entity may reference or be materialized from corresponding `otlp_events` records where appropriate.
+Represents the outcome of applying a policy or guardrail to an execution. This entity may reference or be materialized from corresponding `otlp_event` records where appropriate.
 
 Key fields:
 
@@ -1205,7 +1205,7 @@ Key fields:
 - `pricing_source`
 - `verified_at`
 
-### 11.4.8 `analysis_baselines`
+### 11.4.8 `analysis_baseline`
 
 Stores historical baselines used by deterministic sweepers to identify regressions and anomalies.
 
@@ -1222,7 +1222,7 @@ Key fields:
 - `statistics_json`
 - `calculated_at`
 
-### 11.4.9 `sweeper_runs`
+### 11.4.9 `sweeper_run`
 
 Tracks scheduled and event-driven background function executions.
 
@@ -1246,7 +1246,7 @@ Key fields:
 
 This entity supports batching, concurrency, retries, observability of background processing, and incremental processing without rescanning the entire historical dataset.
 
-### 11.4.10 `optimization_recommendations`
+### 11.4.10 `optimization_recommendation`
 
 Stores structured optimization opportunities generated from deterministic findings and, where appropriate, enriched by an AI optimization agent.
 
@@ -1278,39 +1278,39 @@ The PostgreSQL POC should therefore contain the following logical tables or equi
 
 **Business / inventory**
 
-- `applications`
-- `agents`
-- `agent_instances`
+- `application`
+- `agent`
+- `agent_instance`
 - `models`
 - `tools`
 - `external_systems`
-- `agent_dependencies`
-- `agent_executions`
+- `agent_dependency`
+- `agent_execution`
 
 **OTel telemetry**
 
-- `otlp_spans`
-- `otlp_metrics`
-- `otlp_events`
-- `otlp_logs`
+- `otlp_span`
+- `otlp_metric`
+- `otlp_event`
+- `otlp_log`
 
 **Analytics / intelligence**
 
-- `metric_rollups`
-- `platform_findings`
-- `ai_analyses`
-- `analysis_baselines`
-- `sweeper_runs`
-- `optimization_recommendations`
+- `metric_rollup`
+- `platform_finding`
+- `ai_analysis`
+- `analysis_baseline`
+- `sweeper_run`
+- `optimization_recommendation`
 
 **Governance / financial metadata**
 
-- `governance_policies`
-- `governance_evaluations`
+- `governance_policy`
+- `governance_evaluation`
 - `administrative_audit`
 - `model_pricing`
 
-Historical trend data may be calculated from execution-level synthetic OTel data or pre-aggregated in `otlp_metrics` / `metric_rollups` where that improves POC responsiveness.
+Historical trend data may be calculated from execution-level synthetic OTel data or pre-aggregated in `otlp_metric` / `metric_rollup` where that improves POC responsiveness.
 
 ## 11.5 Synthetic Dataset Requirements
 
