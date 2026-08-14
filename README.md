@@ -25,6 +25,7 @@ observed agent runtime. (See the addendum, AD-003.)
 | `Enterprise_AI_Agent_Observability_POC_Telemetry_Simulator_Requirements.md` | Simulator that generates telemetry for N agents (POC). |
 | `Enterprise_AI_Agent_Observability_POC_Application_and_UX_Design.md` | Platform logic (inventory/dependency/status) + UX. |
 | `Enterprise_AI_Agent_Observability_Pre_Demo_Feature_Specs.md` | Pre-demo features: failure-spread (code-vs-deployment) classifier, security evals, **and alerting**. |
+| `Enterprise_AI_Agent_Observability_Gap_Analysis_and_OliverDB_Interface.md` | Gaps, OliverDB partner questionnaire, cursor/completeness design, and proposal-claim contingencies. **Revisit after OliverDB discussion.** |
 | `Enterprise_AI_Agent_Observability_Competitive_Positioning.md` | Positioning vs Phoenix × Galileo. **Internal.** |
 
 ## Status

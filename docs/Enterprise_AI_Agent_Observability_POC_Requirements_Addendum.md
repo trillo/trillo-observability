@@ -1,7 +1,7 @@
 # Enterprise AI Agent Observability & Analytics
 ## Requirements Addendum (Decision Log)
 
-**Addendum Version:** 0.18 (in progress)
+**Addendum Version:** 0.19 (in progress)
 **Base Document:** Enterprise AI Agent Observability & Analytics — Proof of Concept
 Requirements and Demonstration Specification, **v1.5**
 **Platform:** Trillo AOS
@@ -491,6 +491,14 @@ and read as the change record.
   `application` table); common English words in prose were intentionally left.
 - **Status:** Accepted.
 
+### AD-016 — Gap analysis + OliverDB interface + proposal contingencies (companion doc)
+
+- **Date:** 2026-08-14
+- **Area / Topic:** Gaps, partner (ingestion) boundary, proposal risk
+- **Relationship:** ADDS — analysis companion; not a PRD change
+- **Note:** Assuming all is built except the three AD-014 features, remaining gaps split into partner-confirm (OliverDB) vs platform (ours). Key partner items: redaction reversibility + server-side Flight masking (highest severity), ingestion cursor (monotonic `long` seq preferred — confirm commit-order vs allocation-order + committed watermark + global/per-partition), push-down compute, indexing for trace_id + time/agent scans, durability/WAL, late-span visibility, denormalization ownership (B5). Platform gaps: inline-Block claim is post-hoc-only (observability can't block executed calls), instrumentation/token emission dependency, drift, experimentation, SLO config, MCP/adaptive-UI/DR. Doc maps proposal claims (masking-at-query-layer, unmask, inline Block, ingest-and-index-once, GenAI-native, metering) to the partner answer each depends on, so sections can be adjusted/removed. Full doc: `Enterprise_AI_Agent_Observability_Gap_Analysis_and_OliverDB_Interface.md`.
+- **Status:** OPEN — revisit after OliverDB team discussion.
+
 <!--
 Entry template (copy per decision):
 
@@ -530,3 +538,4 @@ Entry template (copy per decision):
 | 0.16 | 2026-08-13 | AD-014 expanded to include Feature C (Alerting & On-Call Routing); feature-spec doc renamed to Pre_Demo_Feature_Specs and covers all three. |
 | 0.17 | 2026-08-13 | Added AD-015 (naming: AOS classes singular PascalCase -> _tbl; alert entities = AlertRule/Alert/AlertNotification/AlertChannel, FailureCluster). Applied singular class names in the feature spec. |
 | 0.18 | 2026-08-13 | Applied plural->singular entity/table naming sweep across all docs (AD-015): compound names singularized globally, backtick single words, SRS SQL application table; prose untouched. |
+| 0.19 | 2026-08-14 | Added AD-016 + gap-analysis/OliverDB-interface companion doc (partner questionnaire, seq-cursor + trace-completeness design, proposal-claim contingencies); revisit after OliverDB discussion. |
