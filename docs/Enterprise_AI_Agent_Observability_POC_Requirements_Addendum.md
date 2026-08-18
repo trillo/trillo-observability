@@ -1,7 +1,7 @@
 # Enterprise AI Agent Observability & Analytics
 ## Requirements Addendum (Decision Log)
 
-**Addendum Version:** 0.19 (in progress)
+**Addendum Version:** 0.20 (in progress)
 **Base Document:** Enterprise AI Agent Observability & Analytics — Proof of Concept
 Requirements and Demonstration Specification, **v1.5**
 **Platform:** Trillo AOS
@@ -539,3 +539,4 @@ Entry template (copy per decision):
 | 0.17 | 2026-08-13 | Added AD-015 (naming: AOS classes singular PascalCase -> _tbl; alert entities = AlertRule/Alert/AlertNotification/AlertChannel, FailureCluster). Applied singular class names in the feature spec. |
 | 0.18 | 2026-08-13 | Applied plural->singular entity/table naming sweep across all docs (AD-015): compound names singularized globally, backtick single words, SRS SQL application table; prose untouched. |
 | 0.19 | 2026-08-14 | Added AD-016 + gap-analysis/OliverDB-interface companion doc (partner questionnaire, seq-cursor + trace-completeness design, proposal-claim contingencies); revisit after OliverDB discussion. |
+| 0.20 | 2026-08-18 | Backlog triaged post-AD-014: G7/G2/G3/G4 scheduled in Addendum2 (AD-017..020, decision IDs continue there); G1+G5 → OliverDB-Otel-Mapping-Requirements.md; G6 tabled. |

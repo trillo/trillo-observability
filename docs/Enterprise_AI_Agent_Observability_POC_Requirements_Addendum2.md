@@ -1,0 +1,201 @@
+# Enterprise AI Agent Observability & Analytics
+## Requirements Addendum 2 — Scheduled Feature Decisions (with UI)
+
+**Addendum Version:** 0.1 (in progress)
+**Base Document:** POC Requirements v1.5; continues the decision log from
+`Enterprise_AI_Agent_Observability_POC_Requirements_Addendum.md` (AD-001..AD-016).
+**Platform:** Trillo AOS
+**Status:** Living document — scheduled features from the gap backlog.
+
+---
+
+## 1. Purpose
+
+Addendum-1 recorded requirements Q&A decisions. **Addendum-2** records the
+**next tranche of features** pulled from the competitive/gap backlog after the
+first three (Failure Spread, Security Evals, Alerting — AD-014) shipped. Same
+entry pattern, plus a **UI** subsection per feature (the team asked to keep the UX
+in the decision record).
+
+**Backlog disposition (2026-08-18):**
+- **Scheduled here:** G7 (A/B version comparison), G2 (behavioral drift), G3
+  (health-status / SLO config), G4 (retention / sampling — partner-gated).
+- **Moved out:** G1 (identity resolve-by-name) + G5 (OTLP→`gen_ai.*` mapping +
+  coverage) → `OliverDB-Otel-Mapping-Requirements.md` (candidate OliverDB Rust
+  plugin).
+- **Tabled:** G6 (true inline guardrails — different product category; needs an
+  enforcement point in the agent path).
+
+Decision IDs continue globally (AD-017+) so references stay unique across both
+addenda.
+
+---
+
+## 2. Decision Log
+
+### AD-017 — Agent A/B / Version Comparison (observational)
+
+- **Date:** 2026-08-18
+- **Area / Topic:** Version comparison; the productized, ops-persona reframe of
+  the "experimentation/regression" gap (competitive #3)
+- **Relationship:** ADDS — extends §6 (Latency), §7 (Cost), §13.3 (Performance
+  Regression Analyzer); builds on AD-001 (`agent_version`) and AD-014 Feature A
+  (version-correlation / spread)
+- **Positioning:** **Observational A/B, not experimental A/B.** Compare **two
+  versions of an agent already running in production** on real traffic — TAO does
+  **not** generate or split traffic, and does **not** rerun the customer's prompts
+  (which we can't, for generic agents). This sidesteps what made the dev-loop
+  experimentation gap a 🔴, and is arguably more valuable to ops/FinOps: "v1.4 vs
+  v1.5, real traffic, real cost/latency/error/quality."
+- **Decision:**
+  1. Compare any **two `agent_version`s** of one logical agent over a **time
+     window** — **overlapping** (both active now; default) or **fixed lookback**
+     (≤ 30 days) for a completed rollout.
+  2. **Rate/normalized metrics, NOT absolute totals** — error *rate*, latency
+     percentiles, **cost per execution**, **tokens per execution**, eval/quality
+     score. *(Two versions rarely take equal traffic — a 5% canary vs 95% — so
+     absolute totals lie. Normalization is a first-class requirement, not a
+     nice-to-have.)*
+  3. **Metrics compared** (all already in the model): reliability (error rate,
+     failure-cluster signatures by version — new signature in the new version =
+     regression), latency P50–P99, cost/execution, tokens/execution, eval scores
+     (when populated), and **spread** (did the new version introduce a
+     wide-blast-radius CODE failure?).
+  4. **Version pairing:** user **picks any two** versions (auto-select the two
+     most recent as the default). 
+  5. **Quality comparison** depends on **eval scores** (from the Security/eval
+     framework). V1 ships **ops-metrics A/B** (reliability/latency/cost/tokens);
+     **quality A/B** activates where evals are populated.
+- **Data model:** no new telemetry; comparison is a query over `agent_version` +
+  time. Optional small **`AbTestComparison`** class (`agent_id`, `versionA`,
+  `versionB`, `window`, `savedBy`, notes) to persist a saved comparison. New
+  background: an **A/B Comparison function** that computes the normalized metric
+  set for `(agent_id, versionA, versionB, window)`.
+- **UI:**
+  - **Entry points:** an **"A/B / Versions"** tab on the Agent view; a "compare
+    versions" shortcut from a version-correlated failure cluster (Feature A) and
+    from the regression finding.
+  - **Version picker:** two dropdowns (A vs B) defaulting to the two most recent
+    versions; a **window control** (overlapping / fixed ≤30d).
+  - **Comparison board:** side-by-side **normalized** KPI cards (error rate, P95,
+    cost/exec, tokens/exec, eval score) with **delta + direction** (green/red) and
+    the **traffic volume of each version shown explicitly** (so the reader knows
+    the mix). Trend lines per metric over the window.
+  - **"What changed" panel:** highlights metrics that crossed a materiality
+    threshold at the A→B boundary; deep-links to representative traces of each
+    version and to the relevant failure cluster.
+  - **Guardrail note in UI:** label it "production comparison" and surface the
+    per-version execution counts so uneven traffic is never hidden.
+- **Status:** Accepted (positioning + normalized-metrics principle); spec-ready.
+
+### AD-018 — Behavioral Drift Detection
+
+- **Date:** 2026-08-18
+- **Area / Topic:** Statistical drift over time (competitive #6)
+- **Relationship:** ADDS — extends §13.3 (Performance Regression Analyzer,
+  `analysis_baseline`); complements AD-017 (A/B is version-vs-version; drift is
+  same-version-over-time)
+- **Decision:**
+  1. Detect **gradual degradation** that no single trace makes obvious: rising
+     hallucination/eval-fail rate over weeks, shifting output/token distributions,
+     latency creep, declining eval scores.
+  2. **Statistical, not threshold:** compare a **recent window** against a
+     **baseline window** using distribution/trend measures (e.g. population
+     shift, moving-average slope, percentile drift) — deliberately different math
+     from single-failure detection.
+  3. Scope drift by agent / agent+version / model / tool; a drift signal becomes a
+     **`finding_type = DRIFT`** (ties into Alerting AD-014 Feature C as a source).
+  4. Distinguish **provider-driven drift** (model silently updated — detectable as
+     `response_model` change or a step at a model-version boundary) from
+     **input/data drift** (query-pattern shift) where evidence allows.
+- **Data model:** reuses `analysis_baseline` + rollups; adds drift findings
+  (extends the findings model). New background: a **Drift Sweeper** (periodic,
+  wider window than the 5-min health sweeper) computing the statistical measures
+  and emitting DRIFT findings; incremental (AD-006).
+- **UI:**
+  - **Drift feed** (in Reliability / a "Trends" area): ranked DRIFT findings with
+    the metric that's drifting, magnitude, direction, and window.
+  - **Drift detail:** the recent-vs-baseline **distribution/trend chart**, the
+    suspected cause (provider vs input), affected agent/version/model, and
+    deep-links to representative executions across the window.
+  - **Executive dashboard:** a drift indicator alongside guardrail pass-rate
+    (posture, not a single incident).
+- **Status:** Accepted; spec-ready.
+
+### AD-019 — Health-Status Thresholds & SLO Configuration
+
+- **Date:** 2026-08-18
+- **Area / Topic:** Making the executive health status defensible (SRS §7.3, §4.4;
+  deferred there)
+- **Relationship:** CLARIFIES / ADDS — §10 (Executive Dashboard), §7.3 health
+  calc, AD-009 status model
+- **Decision:**
+  1. Category and overall health status (`Healthy` / `Needs Attention` /
+     `Critical`) are computed from **configurable thresholds**, not hard-coded or
+     an unexplained composite — per the SRS honesty requirement (§7.3).
+  2. Support **SLO definitions** per agent/application (e.g. success rate ≥ 99.5%,
+     P95 ≤ X, cost/exec ≤ Y) that drive category status and feed Alerting
+     (AD-014 C).
+  3. **Transparency:** when a composite/score is shown, expose category **weights,
+     metric thresholds, calculation period, missing-data treatment, and the
+     metrics that caused the status** (SRS §7.3 verbatim).
+- **Data model:** a **`HealthPolicy` / `Slo`** config class (scope, metric,
+  operator, threshold, window, weight). The Executive Health Aggregator (§13.3)
+  reads it instead of constants.
+- **UI:**
+  - **SLO / Threshold editor** (admin): per-scope rows (metric, operator,
+    threshold, window, weight), enable/disable.
+  - **Health-calc transparency panel** on the Executive dashboard: a "why this
+    status?" popover listing the contributing metrics, thresholds, weights, period,
+    and missing-data handling.
+  - Category cards show current value vs. its configured threshold.
+- **Status:** Accepted; spec-ready. *(Low build — mostly config surface + wiring
+  the aggregator to read it.)*
+
+### AD-020 — Retention, Sampling & Cost Controls  ⚠️ partner-gated
+
+- **Date:** 2026-08-18
+- **Area / Topic:** Data-lifecycle + storage-cost transparency (competitive #8)
+- **Relationship:** ADDS — §11.1/§4.2 (retention), Gap-Analysis §3.E (OliverDB)
+- **Decision:**
+  1. **Configurable retention by data class** (traces / logs / prompts / outputs /
+     metrics / audit) — independent periods; preserve **aggregate rollups when raw
+     payloads expire** (SRS §4.2).
+  2. **Sampling / down-sampling** of high-volume raw telemetry by policy
+     (application / agent / severity), with **transparent** reporting of what is
+     sampled/aged and when (the competitive gap: cost/completeness trade-off made
+     visible).
+  3. **Cost/volume transparency:** show ingest volume + storage footprint by
+     dimension so the trade-off is legible before/after go-live.
+- **Partner dependency (OliverDB):** **who enforces** retention/sampling — at
+  ingest (OliverDB) or app-side — and the **config interface** are **open items in
+  Gap-Analysis §3.E**. This feature is **gated on the OliverDB discussion**;
+  Trillo owns the **policy + UI + reporting**, OliverDB likely owns **enforcement**
+  on the raw store.
+- **Data model:** a **`RetentionPolicy`** / **`SamplingPolicy`** config class;
+  volume/footprint metrics into rollups.
+- **UI:**
+  - **Data-lifecycle editor** (admin): retention period per data class; sampling
+    rules per scope; preview of resulting volume/cost.
+  - **Storage & ingest transparency** panel: volume by application/agent/data
+    class over time, what's sampled/aged, projected footprint.
+- **Status:** Accepted for **policy + UI + reporting**; **enforcement gated on
+  OliverDB** (Gap-Analysis §3.E). Sequence after the partner conversation.
+
+---
+
+## 3. Sequencing (recommended)
+
+1. **AD-019** (health/SLO config) + **AD-017** (A/B) — build on shipped features,
+   high visibility, no partner dependency.
+2. **AD-018** (drift) — statistical layer on existing baselines.
+3. **AD-020** (retention/sampling) — **after** the OliverDB discussion resolves
+   enforcement ownership.
+- **G1/G5** (mapping/identity) proceed in parallel via the OliverDB doc.
+- **G6** (inline guardrails) remains **tabled** — a category decision, not backlog.
+
+## 4. Change History
+
+| Version | Date | Summary |
+| :-- | :-- | :-- |
+| 0.1 | 2026-08-18 | Created; AD-017 (A/B version comparison), AD-018 (drift), AD-019 (health/SLO config), AD-020 (retention/sampling, partner-gated) with UI specs. G1/G5 → OliverDB mapping doc; G6 tabled. |
