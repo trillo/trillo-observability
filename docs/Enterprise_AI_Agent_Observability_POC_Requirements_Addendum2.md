@@ -74,12 +74,12 @@ addenda.
      thresholds below); where a customer emits no evals, the quality panel shows
      "no eval data" and A/B falls back to ops-metrics only. Demonstrable now on
      simulated eval data.
-  7. **Materiality thresholds are tunable** — the deltas that drive the
+  6. **Materiality thresholds are tunable** — the deltas that drive the
      rollout-decision verdict (what counts as a *material* change in cost, latency,
      error rate, and each quality component; and the composite-quality weights) are
      **configurable**, not hard-coded. Reuse the AD-019 threshold/SLO config surface
      rather than a parallel one. Tune on simulated data for the demo.
-  6. **Primary use case — canary rollout decision:** change a prompt and/or model,
+  7. **Primary use case — canary rollout decision:** change a prompt and/or model,
      deploy it as **version B** to a subset of locations, and after a short window
      (e.g. **24 hours**) compare B vs A on **normalized** reliability, latency,
      **cost/exec**, **tokens/exec**, and **quality** to decide **whether to roll B
