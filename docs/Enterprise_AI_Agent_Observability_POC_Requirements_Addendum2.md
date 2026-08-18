@@ -1,7 +1,7 @@
 # Enterprise AI Agent Observability & Analytics
 ## Requirements Addendum 2 — Scheduled Feature Decisions (with UI)
 
-**Addendum Version:** 0.3 (in progress)
+**Addendum Version:** 0.4 (in progress)
 **Base Document:** POC Requirements v1.5; continues the decision log from
 `Enterprise_AI_Agent_Observability_POC_Requirements_Addendum.md` (AD-001..AD-016).
 **Platform:** Trillo AOS
@@ -128,8 +128,7 @@ addenda.
   - **Guardrail note in UI:** label it "production comparison," surface per-version
     execution + location counts, and flag **low-confidence** when B's sample is
     small (short window / few locations) so a canary isn't over-read.
-- **Status:** Accepted — positioning + normalized metrics + **quality score in
-  v1** + canary-rollout use case; spec-ready.
+- **Status:** Accepted; **promoted to full PRD-style spec — Feature D** in `Enterprise_AI_Agent_Observability_Scheduled_Feature_Specs.md`.
 
 ### AD-018 — Behavioral Drift Detection
 
@@ -163,7 +162,7 @@ addenda.
     deep-links to representative executions across the window.
   - **Executive dashboard:** a drift indicator alongside guardrail pass-rate
     (posture, not a single incident).
-- **Status:** Accepted; spec-ready.
+- **Status:** Accepted; **promoted to full PRD-style spec — Feature E** in `Enterprise_AI_Agent_Observability_Scheduled_Feature_Specs.md`.
 
 ### AD-019 — Health-Status Thresholds & SLO Configuration
 
@@ -197,8 +196,7 @@ addenda.
     status?" popover listing the contributing metrics, thresholds, weights, period,
     and missing-data handling.
   - Category cards show current value vs. its configured threshold.
-- **Status:** Accepted; spec-ready. *(Low build — mostly config surface + wiring
-  the aggregator to read it.)*
+- **Status:** Accepted; **promoted to full PRD-style spec — Feature F** in `Enterprise_AI_Agent_Observability_Scheduled_Feature_Specs.md`. (Low build — config surface + aggregator wiring.)
 
 ### AD-020 — Retention, Sampling & Cost Controls  ⚠️ partner-gated
 
@@ -249,3 +247,4 @@ addenda.
 | 0.1 | 2026-08-18 | Created; AD-017 (A/B version comparison), AD-018 (drift), AD-019 (health/SLO config), AD-020 (retention/sampling, partner-gated) with UI specs. G1/G5 → OliverDB mapping doc; G6 tabled. |
 | 0.2 | 2026-08-18 | AD-017: quality score promoted into v1 (not deferred); added canary-rollout use case (change prompt/model -> deploy B -> compare 24h normalized -> roll-out decision), rollout-decision banner + low-confidence guard, simulator per-version eval-score seeding. |
 | 0.3 | 2026-08-18 | AD-017: composite quality score (headline) + always-available per-eval-metric breakdown; materiality thresholds + composite-quality weights tunable via the shared AD-019 config surface. |
+| 0.4 | 2026-08-18 | AD-017/018/019 promoted to full PRD-style specs (Features D/E/F) in Scheduled_Feature_Specs.md; statuses updated to point at them. |
