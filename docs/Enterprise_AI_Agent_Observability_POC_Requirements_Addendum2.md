@@ -1,7 +1,7 @@
 # Enterprise AI Agent Observability & Analytics
 ## Requirements Addendum 2 — Scheduled Feature Decisions (with UI)
 
-**Addendum Version:** 0.1 (in progress)
+**Addendum Version:** 0.2 (in progress)
 **Base Document:** POC Requirements v1.5; continues the decision log from
 `Enterprise_AI_Agent_Observability_POC_Requirements_Addendum.md` (AD-001..AD-016).
 **Platform:** Trillo AOS
@@ -63,30 +63,57 @@ addenda.
      wide-blast-radius CODE failure?).
   4. **Version pairing:** user **picks any two** versions (auto-select the two
      most recent as the default). 
-  5. **Quality comparison** depends on **eval scores** (from the Security/eval
-     framework). V1 ships **ops-metrics A/B** (reliability/latency/cost/tokens);
-     **quality A/B** activates where evals are populated.
+  5. **Quality score is IN v1** (updated 2026-08-18) — not deferred. The
+     comparison includes a per-version **normalized quality score** from **eval
+     scores** (the eval/Security framework `otlp_event` eval_score/eval_label,
+     aggregated per version — e.g. mean eval score, pass rate, hallucination/
+     toxicity rate). Where a customer emits no evals, the quality panel shows
+     "no eval data" and A/B falls back to ops-metrics only — but **quality is a
+     first-class column of the feature**, demonstrable now on simulated eval data.
+  6. **Primary use case — canary rollout decision:** change a prompt and/or model,
+     deploy it as **version B** to a subset of locations, and after a short window
+     (e.g. **24 hours**) compare B vs A on **normalized** reliability, latency,
+     **cost/exec**, **tokens/exec**, and **quality** to decide **whether to roll B
+     out to more locations**. The window control supports short comparison windows
+     (down to hours), and the board must read cleanly at low B-volume (few
+     locations) — which is exactly why normalization + explicit per-version counts
+     matter.
 - **Data model:** no new telemetry; comparison is a query over `agent_version` +
-  time. Optional small **`AbTestComparison`** class (`agent_id`, `versionA`,
-  `versionB`, `window`, `savedBy`, notes) to persist a saved comparison. New
-  background: an **A/B Comparison function** that computes the normalized metric
-  set for `(agent_id, versionA, versionB, window)`.
+  time, joining ops metrics + eval scores. Optional small **`AbTestComparison`**
+  class (`agent_id`, `versionA`, `versionB`, `window`, `savedBy`, notes,
+  `decision` {roll-out / hold / roll-back}) to persist a saved comparison and its
+  outcome. New background: an **A/B Comparison function** that computes the
+  normalized metric set (ops + quality) for `(agent_id, versionA, versionB,
+  window)`.
+- **Simulator implication:** to demo this, the Telemetry Simulator generates
+  **per-version eval scores** (a believable quality delta between A and B — e.g. B
+  cheaper/faster but slightly lower quality, or better quality at higher cost), so
+  the rollout-decision story is exercisable on synthetic data. (Add to the
+  simulator's version-boundary/regression seeding.)
 - **UI:**
   - **Entry points:** an **"A/B / Versions"** tab on the Agent view; a "compare
     versions" shortcut from a version-correlated failure cluster (Feature A) and
     from the regression finding.
   - **Version picker:** two dropdowns (A vs B) defaulting to the two most recent
     versions; a **window control** (overlapping / fixed ≤30d).
-  - **Comparison board:** side-by-side **normalized** KPI cards (error rate, P95,
-    cost/exec, tokens/exec, eval score) with **delta + direction** (green/red) and
-    the **traffic volume of each version shown explicitly** (so the reader knows
-    the mix). Trend lines per metric over the window.
+  - **Comparison board:** side-by-side **normalized** KPI cards — error rate, P95,
+    cost/exec, tokens/exec, **quality score** — each with **delta + direction**
+    (green/red, quality-aware: cheaper-but-worse is not auto-green) and the
+    **traffic volume + location count of each version shown explicitly**. Trend
+    lines per metric over the window.
+  - **Rollout-decision banner:** a plain-language verdict for the canary case —
+    e.g. "B is 22% cheaper and 8% faster at equal quality (±1%) over 24h across 40
+    locations → **candidate to roll out**" or "B is cheaper but quality −6% →
+    **hold**." User records the decision (roll-out / hold / roll-back) on the saved
+    comparison.
   - **"What changed" panel:** highlights metrics that crossed a materiality
     threshold at the A→B boundary; deep-links to representative traces of each
     version and to the relevant failure cluster.
-  - **Guardrail note in UI:** label it "production comparison" and surface the
-    per-version execution counts so uneven traffic is never hidden.
-- **Status:** Accepted (positioning + normalized-metrics principle); spec-ready.
+  - **Guardrail note in UI:** label it "production comparison," surface per-version
+    execution + location counts, and flag **low-confidence** when B's sample is
+    small (short window / few locations) so a canary isn't over-read.
+- **Status:** Accepted — positioning + normalized metrics + **quality score in
+  v1** + canary-rollout use case; spec-ready.
 
 ### AD-018 — Behavioral Drift Detection
 
@@ -199,3 +226,4 @@ addenda.
 | Version | Date | Summary |
 | :-- | :-- | :-- |
 | 0.1 | 2026-08-18 | Created; AD-017 (A/B version comparison), AD-018 (drift), AD-019 (health/SLO config), AD-020 (retention/sampling, partner-gated) with UI specs. G1/G5 → OliverDB mapping doc; G6 tabled. |
+| 0.2 | 2026-08-18 | AD-017: quality score promoted into v1 (not deferred); added canary-rollout use case (change prompt/model -> deploy B -> compare 24h normalized -> roll-out decision), rollout-decision banner + low-confidence guard, simulator per-version eval-score seeding. |
