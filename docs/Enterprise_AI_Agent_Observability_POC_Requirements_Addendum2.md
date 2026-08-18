@@ -1,7 +1,7 @@
 # Enterprise AI Agent Observability & Analytics
 ## Requirements Addendum 2 — Scheduled Feature Decisions (with UI)
 
-**Addendum Version:** 0.2 (in progress)
+**Addendum Version:** 0.3 (in progress)
 **Base Document:** POC Requirements v1.5; continues the decision log from
 `Enterprise_AI_Agent_Observability_POC_Requirements_Addendum.md` (AD-001..AD-016).
 **Platform:** Trillo AOS
@@ -63,13 +63,22 @@ addenda.
      wide-blast-radius CODE failure?).
   4. **Version pairing:** user **picks any two** versions (auto-select the two
      most recent as the default). 
-  5. **Quality score is IN v1** (updated 2026-08-18) — not deferred. The
-     comparison includes a per-version **normalized quality score** from **eval
-     scores** (the eval/Security framework `otlp_event` eval_score/eval_label,
-     aggregated per version — e.g. mean eval score, pass rate, hallucination/
-     toxicity rate). Where a customer emits no evals, the quality panel shows
-     "no eval data" and A/B falls back to ops-metrics only — but **quality is a
-     first-class column of the feature**, demonstrable now on simulated eval data.
+  5. **Quality score is IN v1** (updated 2026-08-18) — not deferred. A per-version
+     **composite quality score** is the headline metric, derived from the
+     underlying eval scores (eval/Security framework `otlp_event`
+     eval_score/eval_label). **Composite** for the verdict + KPI card;
+     **breakdown** always available — the score decomposes into its per-eval-metric
+     components (e.g. hallucination, toxicity, PII-leak, relevance, pass rate) so a
+     reviewer sees *why* quality moved, not just that it did. The composite is a
+     **weighted blend** of the components (weights configurable — see materiality
+     thresholds below); where a customer emits no evals, the quality panel shows
+     "no eval data" and A/B falls back to ops-metrics only. Demonstrable now on
+     simulated eval data.
+  7. **Materiality thresholds are tunable** — the deltas that drive the
+     rollout-decision verdict (what counts as a *material* change in cost, latency,
+     error rate, and each quality component; and the composite-quality weights) are
+     **configurable**, not hard-coded. Reuse the AD-019 threshold/SLO config surface
+     rather than a parallel one. Tune on simulated data for the demo.
   6. **Primary use case — canary rollout decision:** change a prompt and/or model,
      deploy it as **version B** to a subset of locations, and after a short window
      (e.g. **24 hours**) compare B vs A on **normalized** reliability, latency,
@@ -97,10 +106,17 @@ addenda.
   - **Version picker:** two dropdowns (A vs B) defaulting to the two most recent
     versions; a **window control** (overlapping / fixed ≤30d).
   - **Comparison board:** side-by-side **normalized** KPI cards — error rate, P95,
-    cost/exec, tokens/exec, **quality score** — each with **delta + direction**
-    (green/red, quality-aware: cheaper-but-worse is not auto-green) and the
-    **traffic volume + location count of each version shown explicitly**. Trend
+    cost/exec, tokens/exec, **composite quality score** — each with **delta +
+    direction** (green/red, quality-aware: cheaper-but-worse is not auto-green) and
+    the **traffic volume + location count of each version shown explicitly**. Trend
     lines per metric over the window.
+  - **Quality breakdown:** the composite quality card **expands** into its
+    per-eval-metric components (hallucination, toxicity, PII-leak, relevance, pass
+    rate, …), each with its own A-vs-B delta — so a reviewer can see the composite
+    moved because, e.g., hallucination rose even though relevance improved.
+  - **Materiality highlighting:** deltas that cross the **configured** materiality
+    threshold are visually flagged; a settings affordance links to the AD-019
+    threshold/weights editor.
   - **Rollout-decision banner:** a plain-language verdict for the canary case —
     e.g. "B is 22% cheaper and 8% faster at equal quality (±1%) over 24h across 40
     locations → **candidate to roll out**" or "B is cheaper but quality −6% →
@@ -166,9 +182,14 @@ addenda.
   3. **Transparency:** when a composite/score is shown, expose category **weights,
      metric thresholds, calculation period, missing-data treatment, and the
      metrics that caused the status** (SRS §7.3 verbatim).
+  4. **Shared config surface:** this same threshold/weight editor is the home for
+     **AD-017's A/B materiality thresholds + composite-quality weights** — one
+     config concept (scope, metric, operator, threshold, window, weight), reused,
+     not a parallel surface.
 - **Data model:** a **`HealthPolicy` / `Slo`** config class (scope, metric,
   operator, threshold, window, weight). The Executive Health Aggregator (§13.3)
-  reads it instead of constants.
+  reads it instead of constants; the A/B Comparison function (AD-017) reads the
+  materiality/weight rows.
 - **UI:**
   - **SLO / Threshold editor** (admin): per-scope rows (metric, operator,
     threshold, window, weight), enable/disable.
@@ -227,3 +248,4 @@ addenda.
 | :-- | :-- | :-- |
 | 0.1 | 2026-08-18 | Created; AD-017 (A/B version comparison), AD-018 (drift), AD-019 (health/SLO config), AD-020 (retention/sampling, partner-gated) with UI specs. G1/G5 → OliverDB mapping doc; G6 tabled. |
 | 0.2 | 2026-08-18 | AD-017: quality score promoted into v1 (not deferred); added canary-rollout use case (change prompt/model -> deploy B -> compare 24h normalized -> roll-out decision), rollout-decision banner + low-confidence guard, simulator per-version eval-score seeding. |
+| 0.3 | 2026-08-18 | AD-017: composite quality score (headline) + always-available per-eval-metric breakdown; materiality thresholds + composite-quality weights tunable via the shared AD-019 config surface. |
