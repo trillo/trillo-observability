@@ -1,7 +1,7 @@
 # Enterprise AI Agent Observability & Analytics
 ## Requirements Addendum 2 — Scheduled Feature Decisions (with UI)
 
-**Addendum Version:** 0.4 (in progress)
+**Addendum Version:** 0.5 (in progress)
 **Base Document:** POC Requirements v1.5; continues the decision log from
 `Enterprise_AI_Agent_Observability_POC_Requirements_Addendum.md` (AD-001..AD-016).
 **Platform:** Trillo AOS
@@ -230,6 +230,14 @@ addenda.
 
 ---
 
+### AD-021 — TAO SRE Copilot (Claude Code plugin + MCP) — design
+
+- **Date:** 2026-08-18
+- **Area / Topic:** Publish TAO as an MCP surface; SRE investigation copilot
+- **Relationship:** ADDS — tooling/GTM (proposal "TOP Skill MCP Server" / dual access plane); design companion
+- **Decision:** Ship a second Claude Code plugin ("SRE Copilot") following the authoring-plugin path (`.mcp.json`+OAuth, plugin manifest, skills-as-runbooks). **Two planes, two trust levels:** (1) CATALOG plane = Trillo AI public read-only endpoint returning only **allow-listed** (`sreExposable`) classes/functions/agents (names/signatures, no data) — public is safe because it is a deliberate tool manifest, not the app's full design; per-app `catalogVisibility` (public/token/authenticated) escape hatch; plugin **never writes** to Trillo AI. (2) RUNTIME plane = AOS OAuth+RBAC+masking; investigation tools ARE TAO's existing §13.5 functions (get_finding/trace/dependency_graph/baseline + spread + compare_versions + drift); **structure-not-payload by default** (raw payload gated+audited) so external-model egress is non-sensitive by construction. **Only write in the whole system** = one `write_investigation_report` (reuse `ai_analyses`/new `InvestigationReport`) that surfaces in the TAO UI. Runbooks shipped as skills encode the internal SRE agent's tool sequences (one logic, two harnesses). Full design: `Enterprise_AI_Agent_Observability_SRE_Copilot_Plugin_Design.md`.
+- **Status:** Design; needs TAO appId + function/class list to finalize the tool map + runbooks.
+
 ## 3. Sequencing (recommended)
 
 1. **AD-019** (health/SLO config) + **AD-017** (A/B) — build on shipped features,
@@ -248,3 +256,4 @@ addenda.
 | 0.2 | 2026-08-18 | AD-017: quality score promoted into v1 (not deferred); added canary-rollout use case (change prompt/model -> deploy B -> compare 24h normalized -> roll-out decision), rollout-decision banner + low-confidence guard, simulator per-version eval-score seeding. |
 | 0.3 | 2026-08-18 | AD-017: composite quality score (headline) + always-available per-eval-metric breakdown; materiality thresholds + composite-quality weights tunable via the shared AD-019 config surface. |
 | 0.4 | 2026-08-18 | AD-017/018/019 promoted to full PRD-style specs (Features D/E/F) in Scheduled_Feature_Specs.md; statuses updated to point at them. |
+| 0.5 | 2026-08-18 | Added AD-021 + SRE Copilot plugin/MCP design doc (two-plane: public allow-listed catalog on Trillo AI + OAuth/RBAC/masked runtime on AOS; structure-not-payload; single write = InvestigationReport; runbooks-as-skills). |
