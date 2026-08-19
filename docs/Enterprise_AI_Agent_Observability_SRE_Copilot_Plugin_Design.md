@@ -241,3 +241,44 @@ masking.
 - **Next step:** user checks out (or points me at) the app's classes/functions/
   agents; we build the **curated tool map + allow-list** together (§6), then write
   the **runbook skills** (§8) against real signatures.
+
+## 12. Discovered app surface — appId 568 (`TrilloAgentObservability`)
+
+Checked out at `workspace2/TrilloAgentObservability/.trillo/568/`. **Validates the
+design** — the §13.5 investigation functions, the investigation agents, and the
+`AiAnalysis` write target all exist.
+
+- **Entities (25 domain + system):** Application, LogicalAgent, AgentInstance,
+  Execution, Dependency, ExternalSystem, Model, Tool, ModelPricing,
+  OtlpSpan/Event/Log/Metric, PlatformFinding, AiAnalysis, Alert / AlertRule /
+  AlertChannel / AlertNotification, GovernancePolicy / GovernanceEvaluation,
+  AnalysisBaseline, MetricRollup, OptimizationRecommendation, SweeperRun,
+  AdministrativeAudit.
+- **Agents (3):** `sreRootCauseAgent`, `executiveSreSummaryAgent`,
+  `tokenOptimizationAgent`.
+- **The allow-list gate already exists in metadata:** functions carry
+  `invocationMode`; **`agent_tool`** marks exactly the investigation tools, while
+  `scheduled` (28 sweepers/backfills), `event`, `http`, `sync` are not tools. So
+  the catalog gate = **`invocationMode == agent_tool`** — no new `sreExposable`
+  flag needed. RBAC is already declared per function (`role` + `allowedAppRoles`,
+  e.g. admin/administrator/user/auditor/owner).
+- **Tool candidates (`agent_tool`):** `get_execution_details`,
+  `get_correlated_logs_and_events`, `get_dependency_topology`,
+  `get_agent_dependency_tree`, `get_agent_performance_baseline`,
+  `get_failure_cluster_statistics`, `get_impacted_agent_findings`,
+  `get_top_platform_findings`, `get_location_status`,
+  `get_executive_health_summary`. (Curation note: **`backfill_span_exceptions` is
+  mis-tagged `agent_tool`** — it's a mutation/backfill; **exclude** it from the
+  read surface.)
+- **Signatures are clean** — e.g. `getFailureClusterStatistics` takes
+  `{findingId}` and returns structured blast-radius stats (counts by
+  status/agent/app + time span). These map 1:1 to §6 MCP tools.
+- **Write target `AiAnalysis`:** attrs `agentName, executionId, analysisType,
+  inputEvidence, outputAnalysis, timestamp, confidence`. Reuse for
+  `write_investigation_report` with `analysisType = external_sre_copilot`.
+  **Caveat:** it keys on `executionId` only — a **fleet/cluster** investigation
+  has a `findingId`/`clusterId`, not a single execution. → add an optional
+  `findingId` (and `authoredBy`) to `AiAnalysis`, or allow `executionId` null for
+  cluster-scoped reports.
+- **Plugin naming (decided):** separate plugin — **`tao-claude-plugin`** for Agent
+  Observability; `trillo-claude-plugin` stays authoring-only.
