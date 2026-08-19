@@ -98,6 +98,13 @@ if possible, and the plugin **never writes** to Trillo AI.
 manifest — non-sensitive by construction — so a token adds distribution/rotation
 pain without protecting anything sensitive. The **allow-list is the real control**.
 
+**Allow-list is keyed by `appName`** (unique). An app is investigation-exposable
+only when its `appName` is on the allow-list; within it, only `sreExposable`-
+flagged items are returned. So the gate is two-level: app on the list, item
+flagged. The **class/function/agent set is curated jointly** (not "everything the
+app has") — and may include a few **platform app-classes** (e.g. the OTel telemetry
+classes) alongside TAO's own.
+
 **Escape hatch (per-app `catalogVisibility`):** `public` (default for TAO) /
 `token` / `authenticated`. Enterprises that don't want even function *names*
 public can tighten to `token`/`authenticated` without changing the plugin — the
@@ -209,5 +216,28 @@ masking.
   catalog for *discovery/preview*).
 - **Report class** — extend `ai_analyses` vs. a dedicated `InvestigationReport`
   class. Lean: reuse `ai_analyses` (already surfaces in the UI).
-- Need the **TAO appId + its function/agent/class list** to map §6 tools to real
+- Need the **TAO appName + its function/agent/class list** to map §6 tools to real
   signatures and finalize the runbook steps.
+
+## 11. Build plan & working notes (2026-08-19)
+
+- **Identifier:** the app is referenced by **`appName`** (unique), and `appName`
+  goes on the catalog **allow-list** (§5).
+- **Class/function/agent set is curated jointly** — TAO's own classes + a selected
+  few platform **app-classes** (e.g. OTel telemetry classes). Not auto-exposed.
+- **Two ways to get the surface for design (offered):**
+  1. **git checkout of the app** (definitions of classes/functions/agents in
+     code). Offline, drift-prone.
+  2. **Live access token** to the running app.
+- **Recommendation:** use **(1) git checkout for design-time** — it's the source
+  of truth for signatures, needs no live credentials, and (critically) exposes
+  **no runtime data**, so we honor our own **structure-not-payload / no-egress**
+  principle while building. **Drift is manageable** because we're curating an
+  **allow-list** anyway (not mirroring the whole app) and can re-sync it.
+  - **Defer the live access token** to a later **verification** step, exercised
+    **against synthetic/non-sensitive data only** (the simulator dataset) so we
+    validate live behavior + masking without egressing real telemetry — the same
+    posture the product enforces.
+- **Next step:** user checks out (or points me at) the app's classes/functions/
+  agents; we build the **curated tool map + allow-list** together (§6), then write
+  the **runbook skills** (§8) against real signatures.
