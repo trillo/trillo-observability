@@ -12,11 +12,11 @@ your environment.
 
 ## Why Agent Observability
 
-- **Find and fix fast** — failure clusters (grouped failure patterns) by code / deployment / dependency, latency bottlenecks, and drift.
+- **Find and fix fast** — failure clusters classified as code / deployment / dependency, latency bottlenecks, and drift.
 - **Ship safely** — A/B-compare agent versions on real data before rollout.
 - **Cut spend** — evidence-backed, confidence-scored token and cost optimization.
 - **See the whole system** — every agent, instance, dependency, model, and location at a glance.
-- **Govern with confidence** — every decision recorded, versioned, audit-ready.
+- **Govern with confidence** — every policy decision recorded, versioned, and audit-ready.
 
 ## Why Trillo Agent Observability
 
@@ -28,7 +28,7 @@ your environment.
 ## Complete Platform
 
 #### Monitor
-- **Auto inventory & dependency discovery** — agents, instances, models, tools, and systems, from telemetry.
+- **Auto inventory & dependency discovery** — agents, instances, models, tools, and systems discovered from telemetry.
 - **Fleet dashboard** — reliability, latency, spend, governance, and savings; every tile drills in.
 - **Agent topology** — live geographic map showing worst-case health by location and zone.
 - **Reliability & root cause** — failure clusters, blast radius, and AI-assisted root-cause analysis.
@@ -47,7 +47,7 @@ your environment.
 - **Policy control** — Allow / Warn / Redact / Approval / Block; versioned; test before shipping.
 - **Health & SLOs** — a defensible Healthy / Needs-Attention / Critical verdict with observed-vs-target evidence.
 
-#### AI Intelligence
+#### AI
 - **Specialized AI agents** — SRE root-cause, token optimization, executive summary, and security.
 - **AI Investigation Copilot** — investigate the fleet conversationally from Claude Code and other AI coding agents through a secure MCP server.
 - **Background intelligence** — sweepers turn telemetry into findings, rollups, and baselines automatically.
