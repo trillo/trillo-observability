@@ -1,7 +1,7 @@
 # UI-team handoff: login-first OAuth completion for AOS app plugins
 
-**Audience:** the UI team building the AOS app SPA (starting with the TAO console).
-**Why:** the TAO SRE Copilot plugin (and any future AOS-app plugin) signs in with
+**Audience:** the UI team building the AOS app SPA (starting with the Agent_Observability app console).
+**Why:** the SRE Copilot plugin (and any future AOS-app plugin) signs in with
 OAuth. AOS handles the protocol, but the **app's own login page must complete the
 flow** — otherwise auth hangs (the terminal shows "auth pending" forever). This
 doc is the exact contract the login page must implement.
@@ -12,7 +12,7 @@ Server side: `OAuthController` (tcs-service). Client side: your SPA.
 
 ## 1. Where the browser lands (what changed server-side)
 
-For an **app-bound** OAuth client (e.g. `tao-claude-code`), AOS resolves the login
+For an **app-bound** OAuth client (e.g. `sre-claude-code`), AOS resolves the login
 page from that app's **`AppConfig.frontendUrl`** (per-app, per-env) and 302-redirects
 the browser to:
 
@@ -106,5 +106,5 @@ Browser lands: <frontendUrl>/login?oauth_state=STATE
 ## References
 
 - `OAuthController` (tcs-service) — `/authorize`, `/complete`, `/token`.
-- `TAO-Plugin-Internal-Setup.md` — client registration, `TAO_MCP_URL`, invalid_client.
+- `SRE-Plugin-Internal-Setup.md` — client registration, `SRE_MCP_URL`, invalid_client.
 - Plan-59 — login-first OAuth.

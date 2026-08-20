@@ -280,5 +280,8 @@ design** — the §13.5 investigation functions, the investigation agents, and t
   has a `findingId`/`clusterId`, not a single execution. → add an optional
   `findingId` (and `authoredBy`) to `AiAnalysis`, or allow `executionId` null for
   cluster-scoped reports.
-- **Plugin naming (decided):** separate plugin — **`tao-claude-plugin`** for Agent
-  Observability; `trillo-claude-plugin` stays authoring-only.
+- **Plugin naming (decided):** separate plugin — **`sre-claude-plugin`** (the SRE
+  investigation copilot, serving agent *and* infra observability apps);
+  `trillo-claude-plugin` stays authoring-only. OAuth client `sre-claude-code`,
+  bound to the app by stable **appName** (`Agent_Observability`; appId resolved
+  per-env via `hosted_app_tbl`).
