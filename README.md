@@ -33,6 +33,7 @@ observed agent runtime. (See the addendum, AD-003.)
 | `SRE-Copilot-Investigation-Report-Handoff.md` | App-team spec for the plugin's write path: extend `AiAnalysis` + implement `write_investigation_report` (entity JSON + function JSON + checklist). **Internal.** |
 | `Enterprise_AI_Agent_Observability_Gap_Analysis_and_OliverDB_Interface.md` | Gaps, OliverDB partner questionnaire, cursor/completeness design, and proposal-claim contingencies. **Revisit after OliverDB discussion.** |
 | `Enterprise_AI_Agent_Observability_Competitive_Positioning.md` | Positioning vs Phoenix × Galileo. **Internal.** |
+| `TAO-Brochure-Feature-List.md` | Comprehensive feature catalog (one-liners) organized by the console nav (Monitor/Spend/Govern) — source for the 3-page brochure. **Internal.** |
 
 ## Status
 
