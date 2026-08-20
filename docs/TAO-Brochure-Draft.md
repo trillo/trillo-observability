@@ -61,8 +61,10 @@ your environment.
 **Standard OpenTelemetry. No proprietary SDK.**
 
 Agents stream spans, logs, events, and metrics securely into **OliverDB** using
-OTLP. **Trillo AOS** runs in the customer's cloud, with **PostgreSQL** for metadata
-and policy. Dashboards, alerts, APIs, and **MCP** provide access to telemetry and
+OTLP. Non-standard or extended telemetry is mapped to OpenTelemetry **at ingestion
+by OliverDB, at high speed** — so you don't have to re-instrument your agents.
+**Trillo AOS** runs in the customer's cloud, with **PostgreSQL** for metadata and
+policy. Dashboards, alerts, APIs, and **MCP** provide access to telemetry and
 AI-assisted analysis.
 
 > **Enterprise Security:** BYOC / on-premise deployment, customer-owned data, encryption, RBAC and field-level masking, versioned governance policies, and complete audit trails.
