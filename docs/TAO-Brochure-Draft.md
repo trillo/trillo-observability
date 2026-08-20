@@ -1,21 +1,12 @@
-# Trillo Agent Observability (Powered by OliverDB) — 4-page brochure
-
-> Structure: **P1** What TAO is / why it matters · **P2** Complete platform ·
-> **P3** Architecture & deployment · **P4** Enterprise & commercial.
-> ROI is not a standalone section — a one-line teaser on P1, outcomes on P4.
-> Keep the architecture diagram **large**; cut prose around it, not the diagram.
-> Terminology: "failure clusters (grouped failure patterns)" — gloss once.
-
----
-
-## PAGE 1 — What TAO Is / Why It Matters
-
 # Trillo Agent Observability (Powered by OliverDB)
 
-An enterprise platform to **monitor, govern, and optimize fleets of AI agents** —
-turning the OpenTelemetry your agents already emit into a single, drill-anywhere
-view of reliability, latency, cost, drift, and compliance, deployed **in your own
-cloud** and powered by the high-performance **OliverDB** engine.
+Trillo Agent Observability (TAO) gives enterprises complete visibility, governance,
+and cost control over their fleets of AI agents. It ingests the OpenTelemetry that
+agents already emit and turns it into a single, drill-anywhere view of reliability,
+latency, cost, behavioral drift, and compliance — from a fleet-wide dashboard down
+to an individual execution. Built on Trillo AOS and powered by the high-performance
+**OliverDB** telemetry engine, TAO runs entirely in your own cloud, so your data
+never leaves your environment.
 
 > **Business impact:** Lower MTTR, higher SRE productivity, lower AI spend, reduced compliance risk, and fewer point tools.
 
@@ -34,11 +25,9 @@ cloud** and powered by the high-performance **OliverDB** engine.
 - **Enterprise platform out of the box** — reliability, cost, governance, SLOs, and AI intelligence.
 - **BYOC with lower operational cost** — your data stays in your environment, with one simple data plane.
 
----
+## Complete Platform
 
-## PAGE 2 — Complete Platform
-
-**Monitor**
+#### Monitor
 - **Auto inventory & dependency discovery** — agents, instances, models, tools, and systems, from telemetry.
 - **Fleet dashboard** — reliability, latency, spend, governance, and savings; every tile drills in.
 - **Agent topology** — live geographic map, worst-of health per zone.
@@ -47,25 +36,21 @@ cloud** and powered by the high-performance **OliverDB** engine.
 - **Behavioral drift** — statistical early warning across error rate, latency, cost, and quality.
 - **Alerting & on-call routing** — de-duplicated, blast-radius alerts to Slack / Teams / SMS / ServiceNow; fire → ack → auto-resolve.
 
-**Spend**
+#### Spend
 - **Cost & token economics** — spend re-cut by application, agent, model, owner, cost center, and location, with forecasts.
 - **Chargeback & showback** — per-execution cost attributed to teams and cost centers.
 - **Optimization** — evidence-backed savings recommendations with confidence, plus an AI advisor.
 
-**Govern**
+#### Govern
 - **Governance & audit** — every decision tied to a policy version; role-based masking; exportable evidence.
 - **Adversarial-input detection** — prompt-injection and jailbreak attempts scored and governed.
 - **Policy control** — Allow / Warn / Redact / Approval / Block; versioned; test before shipping.
 - **Health & SLOs** — a defensible Healthy / Needs-Attention / Critical verdict with observed-vs-target evidence.
 
-**AI Intelligence**
+#### AI Intelligence
 - **Specialized AI agents** — SRE root-cause, token optimization, executive summary, and security.
 - **AI Investigation Copilot** — investigate the fleet conversationally from Claude Code over secure MCP.
 - **Background intelligence** — sweepers turn telemetry into findings, rollups, and baselines automatically.
-
----
-
-## PAGE 3 — Architecture & Deployment
 
 ## Architecture
 
@@ -81,10 +66,6 @@ and policy. Dashboards, alerts, APIs, and **MCP** provide access to telemetry an
 AI-assisted analysis.
 
 > **Enterprise Security:** BYOC / on-premise deployment, customer-owned data, encryption, RBAC and field-level masking, versioned governance policies, and complete audit trails.
-
----
-
-## PAGE 4 — Enterprise & Commercial
 
 ## Customization
 
