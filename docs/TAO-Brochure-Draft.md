@@ -1,108 +1,135 @@
-# Trillo Agent Observability (Powered by OliverDB)
+# Trillo Agent Observability (Powered by OliverDB) — 4-page brochure
 
-Trillo Agent Observability is an enterprise platform for **monitoring, governing,
-and optimizing fleets of AI agents**. It turns the OpenTelemetry your agents
-already emit into a single, drill-anywhere view of reliability, latency, cost,
-drift, and compliance — deployed **in your own cloud** and powered by the
-high-performance **OliverDB** telemetry engine.
+> Layout target: **pages 1–3 = details**, **page 4 = Architecture + Deployment +
+> Contact**. Bullets tightened to ~8 words; set the feature list in two columns if
+> still long. Terminology: "failure clusters (grouped failure patterns)" — lead
+> with the product term (matches the UI), gloss once.
 
 ---
 
-## Why Agent Observability (Value proposition)
+## PAGE 1
 
-- **Find and fix issues fast** — failure clusters (grouped failure patterns) classified as code / deployment / dependency, latency bottlenecks, and behavioral drift over time.
-- **Ship changes safely** — A/B compare two agent versions on real observability data before rolling out.
-- **Cut spend** — cost and token optimization with evidence-backed, confidence-scored recommendations.
-- **See the whole system** — a bird's-eye view of every agent, instance, dependency, model, and location.
-- **Govern with confidence** — every policy decision recorded, versioned, and audit-ready.
+# Trillo Agent Observability (Powered by OliverDB)
 
-## Why Trillo Agent Observability (Differentiator)
+An enterprise platform to **monitor, govern, and optimize fleets of AI agents** —
+turning the OpenTelemetry your agents already emit into a single, drill-anywhere
+view of reliability, latency, cost, drift, and compliance, deployed **in your own
+cloud** and powered by the high-performance **OliverDB** telemetry engine.
 
-- **Powered by OliverDB** — a very high-performance telemetry engine (2×–10× performance) that keeps fleet-scale queries fast.
-- **Model-driven & hot-deployable** — customize entities, dashboards, policies, and workflows and deploy changes without downtime.
-- **Enterprise features out of the box, at a lower cost** — reliability, cost, governance, drift, alerting, and SLOs, without assembling point tools.
-- **BYOC deployment** — runs entirely in your VPC or on-premise; your data never leaves your environment.
-- **Simple to operate** — one platform, one data plane, minimal moving parts.
-- **Optimal design lowers your cloud bill** — efficient storage and compute, plus continuous cost optimization of your agents.
+## Why Agent Observability
+
+- **Find and fix fast** — failure clusters (grouped failure patterns) by code / deployment / dependency, latency bottlenecks, and drift, caught early.
+- **Ship safely** — A/B-compare agent versions on real data before rollout.
+- **Cut spend** — evidence-backed, confidence-scored token and cost optimization.
+- **See the whole system** — every agent, instance, dependency, model, and location at a glance.
+- **Govern with confidence** — every decision recorded, versioned, audit-ready.
+
+## Why Trillo Agent Observability
+
+- **Powered by OliverDB** — 2×–10× telemetry performance that keeps fleet-scale queries fast.
+- **Model-driven & hot-deployable** — customize entities, dashboards, and policies and deploy without downtime.
+- **Enterprise features out of the box** — reliability, cost, governance, drift, alerting, SLOs; no point-tool assembly, lower cost.
+- **BYOC** — runs entirely in your VPC or on-premise; your data never leaves.
+- **Simple to operate, lower cloud bill** — one data plane, efficient storage and compute by design.
 
 ## ROI
 
-- **25% SRE productivity boost** — investigate incidents conversationally from desktop agents such as Claude Code via the built-in MCP server.
-- **Continuous cost savings** — model right-sizing, prompt trimming, and caching recommendations, tracked as realized savings.
-- **Lower MTTR** — failure-cluster root-cause classification (code vs deployment vs dependency) and de-duplicated alerting cut triage time.
-- **Tool consolidation** — one platform replaces separate observability, cost, and governance tools (lower total cost of ownership).
-- **Reduced compliance risk** — audit-ready governance with versioned policies and one-click evidence export.
+- **25% SRE productivity boost** — investigate incidents conversationally from Claude Code via the built-in MCP server.
+- **Continuous cost savings** — model right-sizing, prompt trimming, and caching, tracked as realized savings.
+- **Lower MTTR** — failure-cluster root-cause classification and de-duplicated alerting cut triage time.
+
+*Plus: tool consolidation (one platform, not several) and audit-ready compliance.*
+
+---
+
+## PAGE 2
 
 ## Out of Box Features
 
 **Monitor**
-- **Automatic agent inventory & dependency discovery** — agents, instances, models, tools, and external systems discovered from telemetry, or pulled from an agent catalog.
-- **Fleet dashboard** — reliability, latency, spend, governance, ownership, and savings on one landing page, each tile a jump-off into the detail.
-- **Agent topology** — a live geographic map of every runtime instance by location/zone, colored worst-of so one bad site can't hide.
-- **Reliability & root cause** — error trends, failures-by-agent, and **failure clusters** classified code / deployment / dependency with blast radius and AI root-cause analysis.
-- **Latency analysis** — P50/P95/P99 distributions, slow-tail drill-down, and trace time split across model / tool / retrieval / orchestration.
-- **Behavioral drift detection** — statistical early warning for slow degradation across error rate, latency, cost, tokens, and quality.
-- **Alerting & on-call routing** — de-duplicated, blast-radius-aware alerts to Slack / Teams / SMS / ServiceNow / webhook / email, with fire → ack → auto-resolve.
+- **Auto inventory & dependency discovery** — agents, instances, models, tools, and systems, from telemetry or an agent catalog.
+- **Fleet dashboard** — reliability, latency, spend, governance, and savings; every tile drills into the detail.
+- **Agent topology** — a live geographic map, worst-of health per zone.
+- **Reliability & root cause** — failure clusters classified code / deployment / dependency, with AI analysis.
+- **Latency analysis** — P50–P99 distributions, slow-tail drill-down, model / tool / retrieval split.
+- **Behavioral drift** — statistical early warning across error rate, latency, cost, and quality.
+- **Alerting & on-call routing** — de-duplicated, blast-radius alerts to Slack / Teams / SMS / ServiceNow / webhook / email; fire → ack → auto-resolve.
 
 **Spend**
-- **Cost & token economics** — spend and tokens re-cut by application / agent / model / owner / cost center / location, with cached-token savings and forecasts.
-- **Chargeback & showback** — per-execution cost attributed to teams and cost centers, reconciled across every view.
-- **Optimization workbench** — evidence-backed recommendations (right-size model, trim prompt, cache) with projected savings and confidence, plus an AI advisor.
+- **Cost & token economics** — spend re-cut by application / agent / model / owner / cost center / location, with forecasts.
+- **Chargeback & showback** — per-execution cost attributed to teams and cost centers.
+- **Optimization** — evidence-backed savings recommendations with confidence, plus an AI advisor.
 
 **Govern**
-- **Governance & audit ledger** — every policy decision tied to a policy version on a specific execution, with role-based masking of sensitive content.
-- **Adversarial-input detection** — prompt-injection and jailbreak attempts scored, labeled, and governed.
-- **Policy control** — author guardrails, set Allow / Warn / Redact / Approval / Block, test before shipping, and version every change to the audit trail.
-- **Health & SLOs** — configurable objectives with a defensible Healthy / Needs-Attention / Critical verdict that always shows observed-vs-target evidence.
-- **Audit evidence export** — a signed, exportable evidence package for any date range.
+- **Governance & audit** — every decision tied to a policy version; role-based masking; exportable evidence package.
+- **Adversarial-input detection** — prompt-injection and jailbreak attempts scored and governed.
+- **Policy control** — Allow / Warn / Redact / Approval / Block; versioned; test before shipping.
+- **Health & SLOs** — a defensible Healthy / Needs-Attention / Critical verdict with observed-vs-target evidence.
 
 **AI intelligence**
-- **Specialized AI agents** — SRE root-cause, token optimization, executive summary, and security evaluation, each grounded in bounded evidence.
-- **AI Investigation Copilot** — investigate the fleet conversationally from Claude Code (and other coding agents) over a secure MCP server.
-- **Background intelligence** — sweepers continuously turn telemetry into findings, rollups, and baselines — nobody watches a dashboard.
+- **Specialized AI agents** — SRE root-cause, token optimization, executive summary, and security evaluation.
+- **AI Investigation Copilot** — investigate the fleet conversationally from Claude Code over a secure MCP server.
+- **Background intelligence** — sweepers turn telemetry into findings, rollups, and baselines automatically.
 
-## Deployment Model
+---
 
-Agents send telemetry to Trillo Agent Observability using **standard OpenTelemetry —
-no proprietary SDK required**.
-
-- **Emit** — agents at any number of locations (Loc 1…N) export OTel **spans, logs, events, and metrics**.
-- **Transport** — telemetry streams over **OTLP (gRPC/HTTP)** as Arrow RecordBatches into OliverDB's high-throughput receiver, across **VPN / DirectConnect / VPC Peering / Private Endpoint**.
-- **Store & serve** — OliverDB holds telemetry; **PostgreSQL** holds metadata and policy (inventory, dependencies, pricing, governance, audit); the Trillo application runs on **Google Kubernetes Engine** in your project, with models via **Gemini or open models**.
-- **Configure** — point each agent's OTel exporter at the Trillo endpoint; inventory and dependencies build automatically via background sweepers.
-- **Consume** — dashboards & reports, alerts to Slack / Teams / SMS / ServiceNow, and SRE analysis through the **MCP server / API gateway** (Claude, Codex, Cursor, …).
+## PAGE 3
 
 ## Cost
 
-*(Cost table from the proposal — to be inserted.)*
+| Tier | Agent Runs / Month | Annual Price | Effective Price / 1M Runs |
+| :--- | ---: | ---: | ---: |
+| **Starter** | 5M | $25K / year | $417 |
+| **Growth** | 25M | $50K / year | $167 |
+| **Scale** | 100M | $100K / year | $83 |
+| **Enterprise** | 500M | $200K / year | $33 |
+| **Custom** | 500M+ | Custom | Negotiated |
 
 ## Support
 
-*(Support tiers / SLAs — to be inserted.)*
+| Support Tier | Price | Response SLA | Coverage |
+| :--- | ---: | :--- | :--- |
+| **Standard** | Included | 1 business day | Business hours |
+| **Premium** | 15% of ARR — $15K min | 4-hour Sev-1 | Extended hours |
+| **Mission Critical** | 25% of ARR — $30K min | 1-hour Sev-1 | 24×7 |
+| **Dedicated** | $75K–$150K+ / year | 30-minute Sev-1 | 24×7 + named engineer |
 
-## Security & Compliance (including ownership of data)
+## Security & Compliance (including data ownership)
 
-- **BYOC — your cloud, your control** — the entire platform runs in your VPC or on-premise; telemetry and metadata never leave your environment.
+- **BYOC — your cloud, your control** — the platform runs in your VPC or on-premise; telemetry and metadata never leave.
 - **You own your data** — all telemetry, metadata, and analysis stay under your control, retention, and governance.
-- **Role-based access + field-level masking** — sensitive prompts and outputs are masked by role (e.g., Auditor vs Compliance).
-- **Enforced governance** — versioned policies with Allow / Warn / Redact / Approval / Block, recorded per execution.
-- **Complete audit trail** — every policy decision and administrative change is versioned and exportable as an evidence package.
+- **RBAC + field-level masking** — sensitive prompts and outputs masked by role (Auditor vs Compliance).
+- **Enforced, versioned governance** — every policy decision and admin change is audited and exportable as evidence.
 - **Private, encrypted connectivity** — VPN / DirectConnect / VPC Peering / Private Endpoint, encrypted in transit and at rest.
 
 ## Customization
 
-- **Model-driven design** — entities, functions, agents, dashboards, and UI are metadata, changed and **hot-deployed** without redeploying the platform.
-- **Everything configurable** — SLOs, alert rules, governance policies, cost allocation, and thresholds are all user-defined.
-- **Extensible** — add your own functions and agents, and integrate new channels, models, and data sources.
+- **Model-driven** — entities, dashboards, and policies are metadata, changed and hot-deployed without redeploying.
+- **Everything configurable** — SLOs, alert rules, policies, cost allocation, and thresholds.
+- **Extensible** — add your own functions, agents, channels, models, and data sources.
 
-## Architecture Diagram
+---
 
-*(Insert the Trillo AI Observability architecture diagram.)*
+## PAGE 4
+
+## Architecture
+
+*(Insert the Trillo AI Observability architecture diagram — full width.)*
 
 Telemetry flows from agents at every location, over private connectivity, into
 **OliverDB**; the Trillo application on **GKE** serves dashboards, alerts, and an
 **MCP / API gateway** for desktop SRE agents, while **PostgreSQL** holds metadata
 and policy.
+
+## Deployment Model
+
+Agents send telemetry using **standard OpenTelemetry — no proprietary SDK required**.
+
+- **Emit** — agents at any number of locations (Loc 1…N) export OTel spans, logs, events, and metrics.
+- **Transport** — OTLP (gRPC/HTTP) as Arrow RecordBatches into OliverDB's high-throughput receiver, across VPN / DirectConnect / VPC Peering / Private Endpoint.
+- **Store & serve** — OliverDB holds telemetry; PostgreSQL holds metadata and policy; the app runs on GKE in your project, with models via Gemini or open models.
+- **Configure** — point each agent's OTel exporter at the Trillo endpoint; inventory and dependencies build automatically.
+- **Consume** — dashboards & reports, alerts to Slack / Teams / SMS / ServiceNow, and SRE analysis through the MCP server / API gateway (Claude, Codex, Cursor, Antigravity).
 
 ## Contact Us
 
