@@ -34,7 +34,7 @@ They collide with the top-level list first circulated:
 
 The generic-REST + auth surface, in `tcs-service` / `tcs-core`. Start here.
 
-- **AOS-33 · P0** — access-link privesc: non-admin mints link for `admin`, exchanges with **no auth** → admin session. Two missing controls (target-must-be-non-admin; `grantable:privileged` gate on the REST endpoint). *(access-link controller/service, plan-76)* — **first target.**
+- **AOS-33 · P0** — access-link privesc: non-admin mints link for `admin`, exchanges with **no auth** → admin session. **✅ FIX in `tcs-service` develop `ed16b9d` (needs deploy).** Root cause: the target guard checked the bare user row while the exchange minted the tenant/AppRole-resolved identity → app-admins (admin via appRole) passed; and the endpoint only required auth. Fix: (a) reject targets privileged in any active tenant by resolved role/appRoles; (b) require caller be admin or a privileged function-context. *(access-link controller/service, plan-76)*
 - **AOS-43 · P0** — generic `/data` blocklist covers only `AppSecret`/`OtpVerification`; `UserToToken` etc. readable, tokens **plaintext** → refresh into admin. Fix: expand blocklist (default-deny system/credential classes) + hash tokens. *(generic CRUD blocklist + UserToToken storage)*
 - **AOS-10 · P1** — class `acl` not enforced on `/data/*` (agent path enforces it; REST bypasses). *(apply AclGate to generic CRUD)*
 - **AOS-11 · P1** — function `allowedAppRoles` not enforced on `/fn/*`. *(FnController auth gate)*
