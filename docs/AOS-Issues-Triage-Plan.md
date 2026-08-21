@@ -1,0 +1,104 @@
+# AOS Issues — Triage & Work Plan
+
+**Sources:** AOS-05 (skills docs, team retest 2026-08-16), AOS-06 (platform issues,
+retest 2026-08-16), AOS-07 (plugin issues, retest 2026-08-16), plus two inline
+items (guest-secrets, authGuestEnabled). **Internal.**
+
+## Numbering — read this first
+
+The **AOS-06 platform doc's internal `AOS-NN` are the canonical granular IDs.**
+They collide with the top-level list first circulated:
+
+| First-list ID | = canonical | Item |
+| :-- | :-- | :-- |
+| AOS-08 | **AOS-10** | class ACL not enforced on `/data` |
+| AOS-09 | **AOS-11** | function `allowedAppRoles` not enforced on `/fn` |
+| AOS-10 | **AOS-32** | no admin access to user-owned folders (Dropbox) |
+| AOS-11 | *(none)* | guest token can't read integration secrets — **no detail doc** |
+| AOS-12 | *(none)* | `authGuestEnabled` update≠fetch — **no detail doc** |
+
+## Status snapshot
+
+- **Open:** 34 platform (AOS-06) + 2 plugin (AOS-07) + 2 inline = **~38**.
+  Platform severity: **2 P0, 15 P1, 8 P2, 8 P3** (AOS-40 held/monitor, not counted).
+- **Fixed / closed (do not rework):** AOS-41 (P0 mint-ownership) + AOS-42 (P1 raw-SQL
+  bypass) — *fixed by us, the SEC-01/02 work*; AOS-19 (empty list_classes), AOS-20
+  (run_agent name guessing); AOS-05 all 8 skill-doc issues (v0.4.0); AOS-07 P-08 +
+  packaging.
+- **Tracked separately:** AOS-44 (SSRF → GCP service-account token) — critical, its
+  own doc.
+
+---
+
+## Phase 1 — Security (credibility-critical; one coherent surface)
+
+The generic-REST + auth surface, in `tcs-service` / `tcs-core`. Start here.
+
+- **AOS-33 · P0** — access-link privesc: non-admin mints link for `admin`, exchanges with **no auth** → admin session. Two missing controls (target-must-be-non-admin; `grantable:privileged` gate on the REST endpoint). *(access-link controller/service, plan-76)* — **first target.**
+- **AOS-43 · P0** — generic `/data` blocklist covers only `AppSecret`/`OtpVerification`; `UserToToken` etc. readable, tokens **plaintext** → refresh into admin. Fix: expand blocklist (default-deny system/credential classes) + hash tokens. *(generic CRUD blocklist + UserToToken storage)*
+- **AOS-10 · P1** — class `acl` not enforced on `/data/*` (agent path enforces it; REST bypasses). *(apply AclGate to generic CRUD)*
+- **AOS-11 · P1** — function `allowedAppRoles` not enforced on `/fn/*`. *(FnController auth gate)*
+- **AOS-46 · P1** — generic write honors client `readOnly`/`createOnly`/ownership → ownership forgery + disclosure bypass. *(strip protected attrs on create/update)*
+- **AOS-34 · P2** — `list_users` returns bcrypt hashes. *(strip `password` from projection)*
+- **AOS-23 · P1** — soft-deleted files still served + fresh signed URLs. *(FileController: 404 + refuse download-url on deleted)*
+- **AOS-45 · P2** — no max page size on `/data`. *(clamp `end` server-side)*
+
+## Phase 2 — Agent runtime (gates the observability AI + demo)
+
+Our observability products run on agents; right now codeful agents are 100% down.
+
+- **AOS-17 · P1** — codeful agents crash every turn (`_AgentStateAPI`→`ErrorDetail.code`). *(aos-py-execution agent_handler)* — **lead here.**
+- **AOS-02b · P1** — one-shot agent execution unimplemented (`ONESHOT_PROGRAMMATIC_PENDING`); only the `ctx.llm.process_document` workaround runs. *(pod dispatch route)*
+- **AOS-14 · P2** — `list_functions`/`describe_function` return empty `parameters`. *(discovery projection)*
+- **AOS-40 · P2 (monitor)** — agents do speculative writes from read-only questions; no read-only/confirm tool model.
+- **AOS-18 · P3→P1-in-context** — turns >25s return gateway 504 not the running handle. *(gateway timeout / cap waitSeconds)*
+
+## Phase 3 — Telemetry Ingestion Endpoint (build)
+
+Per `Telemetry-Ingestion-Endpoint-Design.md`. Builds on Phase-1 hardened auth. Demo-useful. Pull ahead of Phase 2 if the demo needs it sooner.
+
+## Phase 4 — Data correctness & migration
+
+- **AOS-16 · P1** — `readOnly` attrs silently dropped on update → **data loss** (computed invoice totals never stored). *(generic update honors readOnly for server callers, or fail loud)*
+- **AOS-36 · P1** — in-place column ALTER (type change, `unique`) silently no-ops while deploy reports success. *(trillo-aos migration)*
+- **AOS-35 · P1** — failed migration → whole-app data API `412` outage; raw SQL error surfaced. *(scope failure to the entity; pre-check NOT NULL)*
+- **AOS-21 · P1** — inline `save_content` leaves file `deleted:true` → invisible. *(finalize semantics for inline path)*
+- **AOS-22 · P1** — `get_content(version=N)` ignores version → history unreachable.
+- **AOS-31 · P1** — `ctx.files.list(folderId)` ignores folder → returns all files + platform-internal. *(honor folderId; scope sourceClass)*
+- **AOS-24 · P2** — `upload_succeeded` accepts with no bytes in GCS → phantom file.
+- **AOS-39 · P1** — read-validate-write race → oversell; no atomic/lock/version primitive. *(offer atomic conditional update; fix the Functions skill's recommended pattern)*
+
+## Phase 5 — Multi-tenancy (only if we claim it)
+
+- **AOS-15 · P1** — `miscInfo.multiTenant:true` not carried to `AppConfig.multiTenant`; redeploy resets it; not editable from plugin. *(DeployAppMetadata.bootstrapAppConfig — the known boolean/bootstrap gotcha; I have this)*
+- **AOS-37 · P1** — reachable multi-tenant state does not isolate tenant reads. *(tenant scoping in generic queries)*
+
+## Phase 6 — Error-shape / DX / authoring polish
+
+- **AOS-07 P-06 · P2** — `md_update` merges instead of replacing → can't remove a field; stale keys accrue. *(metadata update semantics)*
+- **AOS-07 P-07 · P3** — `aos_call` doesn't send `x-app-id` header (workaround `?appId=`); doubled/malformed error string. *(authoring MCP tool)*
+- **AOS-08 · P3** — raw REST `/agent/{name}/invoke` drops the user message (`content:null`).
+- **AOS-09 · P2** — task/conversation event routes: wrong documented URL 500s, `/conversations/{id}/events` returns empty, 401 with success-shaped body.
+- **AOS-25 · P2** — folder-name uniqueness is tenant-wide but visibility per-owner → existence oracle + name block.
+- **AOS-26 · P3** — `ctx.files` has no folder read/list/rename/move (REST get/delete exist, unsurfaced).
+- **AOS-27 · P3** — `ctx.files.list` typed `list` but returns a page dict; docstring example raises.
+- **AOS-28 · P3** — `ctx.files.delete` returns a zeroed stub.
+- **AOS-29 · P3** — literal `null` in GCS object paths for nested folders.
+- **AOS-30 · P3** — unsupported HTTP method returns 500 not 405.
+- **AOS-38 · P3** — AppConfig password-policy fields ignored; hard-coded policy enforced.
+- **Inline · needs detail** — guest token can't read integration secrets; `authGuestEnabled` update≠fetch (both need repro docs before triage).
+
+---
+
+## Why this order
+Security first — two live account-takeovers, and it's the core product claim. Agents
+second — they gate the observability products and the demo. Telemetry endpoint third
+(ready to build, wants the hardened auth). Correctness/migration/MT are serious but
+not actively exploited or demo-blocking. DX polish last.
+
+## Cross-cutting notes
+- **Phase 1 is one investigation, many fixes** — `/data`, `/fn`, access-link, and the
+  admin/user paths share the authorization layer the agent-delegation path already
+  applies correctly; the theme is "REST bypasses the gate."
+- **We've done this class before** (AOS-41/42 fixed). Same repos, checked out here.
+- Keep exploit repro in the source security docs, not restated here.

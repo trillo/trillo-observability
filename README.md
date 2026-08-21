@@ -24,6 +24,7 @@ observed agent runtime. (See the addendum, AD-003.)
 | `Enterprise_AI_Agent_Observability_POC_Requirements_Addendum2.md` | **Decision log continued** (AD-017…) — next-tranche scheduled features (A/B version comparison, drift, health/SLO config, retention/sampling) **with UI specs**. |
 | `OliverDB-Otel-Mapping-Requirements.md` | G1+G5: OTLP→`gen_ai.*` mapping, agent-identity resolve-by-name, coverage report — candidate OliverDB Rust plugin. **For partner discussion.** |
 | `Telemetry-Ingestion-Endpoint-Design.md` | OTLP-native ingestion into Postgres for small/demo setups; app-scoped IngestionKey (schema0) + metering; same otlp_* schema as OliverDB. |
+| `AOS-Issues-Triage-Plan.md` | Consolidated triage + phased work plan for all AOS-05/06/07 issues (numbering reconciled, security-first). **Internal.** |
 | `Enterprise_AI_Agent_Observability_SRS_Addendum_Reconciliation.md` | SRS v1.1 ↔ addendum reconciliation (aligned / conflicts / gaps). |
 | `Enterprise_AI_Agent_Observability_POC_Telemetry_Simulator_Requirements.md` | Simulator that generates telemetry for N agents (POC). |
 | `Enterprise_AI_Agent_Observability_POC_Application_and_UX_Design.md` | Platform logic (inventory/dependency/status) + UX. |
