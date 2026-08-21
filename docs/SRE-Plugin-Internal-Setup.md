@@ -56,10 +56,10 @@ private static final Map<String, Client> CLIENTS = Map.of(
 Use `redirectUris = List.of()` + `nativeLoopback = true` for CLI/desktop clients.
 The last arg is the **appName** the client authenticates for (`null` = unbound,
 platform login). Bind the **appName** (stable across envs), never an appId (differs
-per env — see §3a). Future SRE apps are just more clients:
+per env — see §3). Future SRE apps are just more clients:
 `Neoclouds_Observability`, `Data_Center_Observability`.
 
-## 3a. Login page resolution (app-bound clients)
+## 3. Login page resolution (app-bound clients)
 
 An app-bound client's login page is the target app's own SPA, resolved at
 `/authorize` from that app's `AppConfig.frontendUrl`:
@@ -83,13 +83,27 @@ clientId → (registry) appName → hosted_app_tbl → appId/schema (per env)
 - The unbound authoring client (`trillo-claude-code`) ignores all of this and uses
   the platform login (`tcs.oauth.login.url` / `tcs.app.server.url`).
 
-## 3. Pointing the plugin at a dev server
+## 4. Install & point the plugin at a server
 
-The MCP URL is env-overridable: `${SRE_MCP_URL:-https://aos.trillo.ai/api/v2.0/mcp}`
-(the default host is a **placeholder** — set the env var to a real endpoint).
+Install the marketplace and plugin (both are named `sre`; the marketplace comes
+from the `sre-claude-plugin` repo — the old `tao-claude-plugin` name still
+redirects):
 
 ```bash
-export SRE_MCP_URL="https://<dev-aos-host>/api/v2.0/mcp"
+# 1. add the marketplace (from the renamed repo)
+claude plugin marketplace add trillo/sre-claude-plugin
+
+# 2. install the plugin — plugin@marketplace, both "sre"
+claude plugin install sre@sre
+```
+
+The MCP URL is env-overridable: `${SRE_MCP_URL:-https://aos.trillo.ai/api/v2.0/mcp}`
+(the default host in `.mcp.json` is a **placeholder** — set the env var to a real
+endpoint). For dev:
+
+```bash
+# 3. point at the dev AOS
+export SRE_MCP_URL="https://aos-dev.trillo.ai/api/v2.0/mcp"
 claude
 ```
 
@@ -101,13 +115,13 @@ deployed (via the registry above) on the **same** AOS/tcs-service instance that
 `SRE_MCP_URL` points at. Authoring's `api.trillo.ai` and any dev host are separate
 deployments with separate registries.
 
-## 4. Deploy after a registry change
+## 5. Deploy after a registry change
 
 1. Edit `OAuthClientRegistry.java` (§2).
 2. Build + deploy **tcs-service** to the target environment (dev first, then prod).
 3. Verify the new client is live before customers try to authenticate.
 
-## 5. Troubleshooting
+## 6. Troubleshooting
 
 ### `invalid_client` — "client_id and redirect_uri do not match a registered client"
 Almost always **the client_id isn't registered on the server the URL points at.**
@@ -124,16 +138,19 @@ Check, in order:
 Session expired or never completed. Re-run `/mcp` → **sre** → authenticate.
 
 ### Connection not listed / won't start
-Confirm the plugin is installed (`claude plugin install sre`) and, for a non-default
-host, that `SRE_MCP_URL` is exported in the same shell that launched Claude Code.
+Confirm the plugin is installed (`claude plugin install sre@sre`) and, for a
+non-default host, that `SRE_MCP_URL` is exported in the same shell that launched
+Claude Code.
 
-## 6. Interim unblock (before `sre-claude-code` is deployed)
-
-Because `trillo-claude-code` is already registered and is loopback (any port), you
-can temporarily reuse it: in `sre-claude-plugin/.mcp.json` set
-`clientId: "trillo-claude-code"`, point `SRE_MCP_URL` at a server that has it, and
-authenticate. This proves the flow end-to-end. **Revert to `sre-claude-code` before
-shipping** — mixing the two plugins' identity is only for local testing.
+### A "server error" that's really a malformed `SRE_MCP_URL`
+A bad endpoint value often *looks* like a server-side failure but is a client-side
+URL problem. Watch for a **glued word** (`…mcpclaude`, from `export SRE_MCP_URL=…mcp` immediately
+followed by `claude` with no newline) or a **trailing flag** accidentally appended
+to the value. Note a **`401` does not validate the path** — the challenge fires
+before routing, so a 401 can come back even when the path is wrong. Fix: print the
+value (`echo "$SRE_MCP_URL"`) and confirm it is exactly
+`https://<host>/api/v2.0/mcp` — no trailing characters, spaces, or joined words —
+then re-`export` and relaunch.
 
 ## References
 
