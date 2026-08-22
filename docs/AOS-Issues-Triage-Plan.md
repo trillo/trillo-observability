@@ -26,7 +26,13 @@ They collide with the top-level list first circulated:
   (run_agent name guessing); AOS-05 all 8 skill-doc issues (v0.4.0); AOS-07 P-08 +
   packaging.
 - **Tracked separately:** AOS-44 (SSRF → GCP service-account token) — critical, its
-  own doc.
+  own doc (`aos-44-pod-deprivilege-design.md`). **Phase 1+2 code done + pushed to
+  `develop` 2026-08-22** (aos-py-execution 3e327a2, tcs-metadata b50904f, tcs-gcp
+  59c4001, trillo-aos d79c49f): pod model calls now proxy through AOS (Gemini
+  generate + embeddings), pod's ADC/Claude-on-Vertex path removed, retry moved
+  AOS-side, per-call LLM timeout, `[LLM-METER]` hook. **Remaining:** team smoke on
+  internal + Phase 0 (drop pod-GSA storage role) + Phase 3 (remove GSA binding +
+  egress NetworkPolicy — now unblocked). Needs deploy.
 
 ---
 
