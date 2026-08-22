@@ -61,7 +61,20 @@ The generic-REST + auth surface, in `tcs-service` / `tcs-core`. Start here.
   2026-08-16 report. The report was against a stale build (deploy lag). Only residual is
   the shared `isInternalCaller` bypass (`ExecAuthzGuard.java:76`), same parked
   trust-boundary question as AOS-10:96. Closes on deploy.
-- **AOS-46 · P1** — generic write honors client `readOnly`/`createOnly`/ownership → ownership forgery + disclosure bypass. *(strip protected attrs on create/update)*
+- **AOS-46 · P1 — ✅ FIXED (in `tcs-service`, needs deploy; build-verified, uncommitted→pushed).**
+  Two gaps in `DataServiceImpl`: (1) `validateAndSanitize` stripped `computed`+`readOnly`
+  but **never `createOnly`** — a client could mutate any create-only field on `/data`
+  update, incl. reassigning `idOfUser` (declared `createOnly`+`representsOwnership`) to
+  another user; (2) create-time forgery — `DataUtil.ensureHasOwner` fills owner only
+  *if absent*, so a client POSTing `{idOfUser:<victim>}` on create had it honored.
+  Fix: (1) also strip `createOnly` on update (line 393); (2) new `forceOwnerToCaller`
+  helper called from the public `create`/`upsert` methods overwrites the ownership attr
+  with the caller (exempt: `internal*` raised-privilege paths via skipValidation, and
+  admin on `adminBypassesOwnership:true` classes for create-on-behalf). `readOnly` left
+  create-settable by design. **Follow-up (Anil's "step beyond", needs analysis):** block
+  client writes to ALL `platform:true`/system attributes on create too (not just
+  ownership) — requires cataloguing which platform attrs are legitimately client-set at
+  create before enforcing; defer to a dedicated pass.
 - **AOS-34 · P2** — `list_users` returns bcrypt hashes. *(strip `password` from projection)*
 - **AOS-23 · P1** — soft-deleted files still served + fresh signed URLs. *(FileController: 404 + refuse download-url on deleted)*
 - **AOS-45 · P2** — no max page size on `/data`. *(clamp `end` server-side)*
