@@ -1,6 +1,6 @@
-# Trillo AI Infra Observability for Neoclouds (Powered by OliverDB)
+# Trillo Neoclouds Observability (Powered by OliverDB)
 
-Trillo AI Infra Observability gives GPU cloud providers complete visibility,
+Trillo Neoclouds Observability gives GPU cloud providers complete visibility,
 reliability, and utilization control over their GPU fleets. It ingests GPU, node,
 fabric, and job telemetry and turns it into centralized observability of health,
 utilization, reliability, cost, and per-tenant SLAs — across every cluster and
@@ -10,7 +10,7 @@ it.
 
 > **Business impact:** Higher fleet utilization and margin, faster failure detection, accurate per-tenant billing, stronger SLAs, and confident capacity planning.
 
-## Why AI Infra Observability
+## Why Neoclouds Observability
 
 - **Sell more of what you own** — surface idle and underused GPUs so occupancy, and margin, go up.
 - **Catch failures before tenants do** — detect failing GPUs, nodes, and fabric early, with the blast radius.
@@ -53,7 +53,7 @@ it.
 
 ## Architecture
 
-*(Trillo AI Infra Observability architecture diagram — GPU fleet → exporters/OTLP → OliverDB → dashboards / alerts / MCP, all in your environment.)*
+*(Trillo Neoclouds Observability architecture diagram — GPU fleet → exporters/OTLP → OliverDB → dashboards / alerts / MCP, all in your environment.)*
 
 ## Deployment Model
 

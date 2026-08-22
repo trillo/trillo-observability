@@ -1,10 +1,10 @@
 # Trillo Agent Observability (Powered by OliverDB)
 
-Trillo Agent Observability (TAO) gives enterprises complete visibility, governance,
+Trillo Agent Observability gives enterprises complete visibility, governance,
 and cost control over their fleets of AI agents. It ingests the OpenTelemetry
 agents emit and turns it into centralized observability of reliability, latency,
 cost, behavioral drift, and compliance. Built on Trillo AOS and powered by the
-**OliverDB** telemetry engine, TAO runs entirely in your own cloud, so your data
+**OliverDB** telemetry engine, It runs entirely in your own cloud, so your data
 never leaves your environment.
 
 > **Business impact:** Lower MTTR, higher SRE productivity, lower AI spend, reduced compliance risk, and fewer point tools.
@@ -53,7 +53,7 @@ never leaves your environment.
 
 ## Architecture
 
-*(Trillo Agent Observability (TAO) architecture diagram — full width, kept large and readable.)*
+*(Trillo Agent Observability architecture diagram — full width, kept large and readable.)*
 
 ## Deployment Model
 

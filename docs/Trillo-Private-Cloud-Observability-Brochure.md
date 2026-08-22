@@ -1,6 +1,6 @@
-# Trillo AI Infra Observability for Private Data Centers (Powered by OliverDB)
+# Trillo Private Cloud Observability (Powered by OliverDB)
 
-Trillo AI Infra Observability gives enterprises complete visibility, reliability,
+Trillo Private Cloud Observability gives enterprises complete visibility, reliability,
 and cost control over the GPU infrastructure in their own data centers. It ingests
 GPU, node, fabric, and job telemetry and turns it into centralized observability of
 health, utilization, reliability, cost, and capacity — across every cluster and
@@ -10,7 +10,7 @@ environment.
 
 > **Business impact:** Higher GPU utilization, cost recovery through chargeback, lower MTTR, confident capacity planning, and audit-ready governance.
 
-## Why AI Infra Observability
+## Why Private Cloud Observability
 
 - **Get your money's worth** — find idle and underused GPUs and reclaim them.
 - **Recover cost fairly** — attribute GPU spend to the teams and projects that use it.
@@ -54,7 +54,7 @@ environment.
 
 ## Architecture
 
-*(Trillo AI Infra Observability architecture diagram — GPU fleet → exporters/OTLP → OliverDB → dashboards / alerts / MCP, all on-premise or in your private cloud.)*
+*(Trillo Private Cloud Observability architecture diagram — GPU fleet → exporters/OTLP → OliverDB → dashboards / alerts / MCP, all on-premise or in your private cloud.)*
 
 ## Deployment Model
 

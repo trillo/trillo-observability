@@ -8,7 +8,6 @@ Govern** — plus the cross-cutting intelligence and platform layers.
 > This is the **source list** (longer than three pages by design — trim for the
 > brochure). Each bullet is one feature + a one-line description.
 > **Naming:** the console shows "**Trillo AI Observability**"; internal docs also
-> use "Trillo Agent Observability / TAO" — pick one for the brochure.
 
 ---
 

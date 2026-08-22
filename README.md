@@ -35,12 +35,12 @@ observed agent runtime. (See the addendum, AD-003.)
 | `SRE-Copilot-Investigation-Report-Handoff.md` | App-team spec for the plugin's write path: extend `AiAnalysis` + implement `write_investigation_report` (entity JSON + function JSON + checklist). **Internal.** |
 | `Enterprise_AI_Agent_Observability_Gap_Analysis_and_OliverDB_Interface.md` | Gaps, OliverDB partner questionnaire, cursor/completeness design, and proposal-claim contingencies. **Revisit after OliverDB discussion.** |
 | `Enterprise_AI_Agent_Observability_Competitive_Positioning.md` | Positioning vs Phoenix × Galileo. **Internal.** |
-| `TAO-Brochure-Feature-List.md` | Comprehensive feature catalog (one-liners) organized by the console nav (Monitor/Spend/Govern) — source for the 3-page brochure. **Internal.** |
+| `Trillo-Agent-Observability-Feature-List.md` | Comprehensive feature catalog (one-liners) for Trillo Agent Observability, organized by the console nav (Monitor/Spend/Govern). **Internal.** |
 | `SRE-Plugin-Internal-Setup.md` | Internal team guide: OAuth client registration (OAuthClientRegistry), pointing the plugin at dev via SRE_MCP_URL, and invalid_client/auth troubleshooting. **Internal.** |
 | `SRE-Plugin-UI-Login-Handoff.md` | UI-team spec: the login-first OAuth completion handshake an AOS app SPA must implement (detect oauth_state → authenticate → POST /oauth/complete → loopback redirect). **Internal.** |
-| `Trillo-AI-Infra-Observability-Neoclouds-Brochure.md` | Infra-observability brochure for **neoclouds** (GPU cloud providers): utilization/margin, per-tenant billing, SLAs. |
-| `Trillo-AI-Infra-Observability-Private-DataCenter-Brochure.md` | Infra-observability brochure for **private data centers**: utilization, chargeback, capacity, on-prem governance. |
-| `TAO-Brochure-Draft.md` | Filled 3-page brochure content (overview, value prop, differentiators, ROI, out-of-box features, deployment, security, customization) — cost/support/contact are placeholders. **Internal.** |
+| `Trillo-Neoclouds-Observability-Brochure.md` | Brochure for **Trillo Neoclouds Observability** (GPU cloud providers): utilization/margin, per-tenant billing, SLAs. |
+| `Trillo-Private-Cloud-Observability-Brochure.md` | Brochure for **Trillo Private Cloud Observability** (private data centers): utilization, chargeback, capacity, on-prem governance. |
+| `Trillo-Agent-Observability-Brochure.md` | Brochure for **Trillo Agent Observability** (overview, value, differentiators, ROI, features, deployment, security, pricing). **Internal.** |
 
 ## Status
 
