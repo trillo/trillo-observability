@@ -4,7 +4,7 @@ Trillo Neoclouds Observability gives GPU cloud providers complete visibility,
 reliability, and utilization control over their GPU fleets. It ingests GPU, node,
 fabric, and job telemetry and turns it into centralized observability of health,
 utilization, reliability, cost, and per-tenant SLAs — across every cluster and
-region. Built on Trillo AOS and powered by the **OliverDB** telemetry engine, it
+region. Powered by the **OliverDB** telemetry engine, it
 runs entirely in your own environment, so your fleet and tenant data never leave
 it.
 
@@ -61,7 +61,7 @@ it.
 
 GPU, node, and fabric telemetry (DCGM, node, and network exporters) streams into
 **OliverDB** using OTLP. Non-standard or extended metrics are mapped at ingestion,
-at high speed, so you don't have to re-instrument. **Trillo AOS** runs in your
+at high speed, so you don't have to re-instrument. The platform runs in your
 environment, with **PostgreSQL** for metadata and policy. Dashboards, alerts, APIs,
 and **MCP** provide access to telemetry and AI-assisted analysis.
 

@@ -3,8 +3,8 @@
 Trillo Agent Observability gives enterprises complete visibility, governance,
 and cost control over their fleets of AI agents. It ingests the OpenTelemetry
 agents emit and turns it into centralized observability of reliability, latency,
-cost, behavioral drift, and compliance. Built on Trillo AOS and powered by the
-**OliverDB** telemetry engine, It runs entirely in your own cloud, so your data
+cost, behavioral drift, and compliance. Powered by the
+**OliverDB** telemetry engine, it runs entirely in your own cloud, so your data
 never leaves your environment.
 
 > **Business impact:** Lower MTTR, higher SRE productivity, lower AI spend, reduced compliance risk, and fewer point tools.
@@ -62,7 +62,7 @@ never leaves your environment.
 Agents stream spans, logs, events, and metrics securely into **OliverDB** using
 OTLP. Non-standard or extended telemetry is mapped to OpenTelemetry **at ingestion
 by OliverDB, at high speed** — so you don't have to re-instrument your agents.
-**Trillo AOS** runs in the customer's cloud, with **PostgreSQL** for metadata and
+The platform runs in your cloud, with **PostgreSQL** for metadata and
 policy. Dashboards, alerts, APIs, and **MCP** provide access to telemetry and
 AI-assisted analysis.
 

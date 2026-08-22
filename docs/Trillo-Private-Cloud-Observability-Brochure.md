@@ -4,7 +4,7 @@ Trillo Private Cloud Observability gives enterprises complete visibility, reliab
 and cost control over the GPU infrastructure in their own data centers. It ingests
 GPU, node, fabric, and job telemetry and turns it into centralized observability of
 health, utilization, reliability, cost, and capacity — across every cluster and
-site. Built on Trillo AOS and powered by the **OliverDB** telemetry engine, it runs
+site. Powered by the **OliverDB** telemetry engine, it runs
 entirely on-premise or in your private cloud, so your data never leaves your
 environment.
 
@@ -62,7 +62,7 @@ environment.
 
 GPU, node, and fabric telemetry (DCGM, node, and network exporters) streams into
 **OliverDB** using OTLP. Non-standard or extended metrics are mapped at ingestion,
-at high speed, so you don't have to re-instrument. **Trillo AOS** runs on-premise
+at high speed, so you don't have to re-instrument. The platform runs on-premise
 or in your private cloud, with **PostgreSQL** for metadata and policy. Dashboards,
 alerts, APIs, and **MCP** provide access to telemetry and AI-assisted analysis.
 
