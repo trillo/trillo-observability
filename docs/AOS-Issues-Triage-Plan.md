@@ -42,8 +42,25 @@ The generic-REST + auth surface, in `tcs-service` / `tcs-core`. Start here.
 
 - **AOS-33 · P0** — access-link privesc: non-admin mints link for `admin`, exchanges with **no auth** → admin session. **✅ FIX in `tcs-service` develop `ed16b9d` (needs deploy).** Root cause: the target guard checked the bare user row while the exchange minted the tenant/AppRole-resolved identity → app-admins (admin via appRole) passed; and the endpoint only required auth. Fix: (a) reject targets privileged in any active tenant by resolved role/appRoles; (b) require caller be admin or a privileged function-context. *(access-link controller/service, plan-76)*
 - **AOS-43 · P0** — generic `/data` blocklist covered only `AppSecret`/`OtpVerification`; `UserToToken` etc. readable, tokens **plaintext** → refresh into admin. **✅ Part 1 FIX in `tcs-service` develop `5e5f0f3` (needs deploy):** unconditional `HARD_BLOCKED` set in `PlatformClassGuard` (credential/token/PII classes denied in all modes + for function context; dedicated controllers bypass the generic path, so legit function access is unaffected). **Part 2 open:** hash `UserToToken` tokens (currently plaintext) — separate follow-up. *(generic CRUD blocklist done; token storage pending)*
-- **AOS-10 · P1** — class `acl` not enforced on `/data/*` (agent path enforces it; REST bypasses). *(apply AclGate to generic CRUD)*
-- **AOS-11 · P1** — function `allowedAppRoles` not enforced on `/fn/*`. *(FnController auth gate)*
+- **AOS-10 · P1 — ⏸ TABLED 2026-08-22 (investigated; revisit).** Confirmed real. Root
+  cause: `AclAccessGuard.isPermitted` (called by `DataController`/`QueryController` on
+  every op) short-circuits at `AclAccessGuard.java:93` — `if (!ctx.isAgentDelegation())
+  return true;` — so class `acl` is enforced only on agent-delegation tokens; direct
+  user/UI JWTs skip `AclGate.classPermits` entirely. Fix = remove that bypass (keep the
+  `isInternalCaller` bypass at :96 — fn `ctx.data.*` callbacks rely on it). Blast radius
+  bounded: apps without acl stay open (plan-79 empty=open); secret/system classes stay
+  covered by `PlatformClassGuard`; `AppRoleResolver` injects coarse `admin`/`guest` but
+  **no coarse `user`**. **Open decision before coding:** platform-admin handling —
+  (a) no bypass (secure-default, risks Data Manager on acl'd classes omitting `admin`),
+  (b) admin bypasses acl on direct path (lean; keeps Data Manager), (c) flag-gated
+  `adminBypassesAcl`. Plus optional shadow-mode rollout (log-only) beside the existing
+  `AclAccessGuard.enabled` kill switch.
+- **AOS-11 · P1 — ✅ ALREADY ENFORCED (close; no code).** `/fn` sync+async + MCP
+  `tools/call` all run `ExecAuthzGuard.enforce` (role rank + `allowedAppRoles`) via
+  `FnService.lookupFunctionCode:239`, wired since 2026-07-09/10 — a month before the
+  2026-08-16 report. The report was against a stale build (deploy lag). Only residual is
+  the shared `isInternalCaller` bypass (`ExecAuthzGuard.java:76`), same parked
+  trust-boundary question as AOS-10:96. Closes on deploy.
 - **AOS-46 · P1** — generic write honors client `readOnly`/`createOnly`/ownership → ownership forgery + disclosure bypass. *(strip protected attrs on create/update)*
 - **AOS-34 · P2** — `list_users` returns bcrypt hashes. *(strip `password` from projection)*
 - **AOS-23 · P1** — soft-deleted files still served + fresh signed URLs. *(FileController: 404 + refuse download-url on deleted)*
