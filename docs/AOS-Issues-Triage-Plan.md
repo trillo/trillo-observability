@@ -67,14 +67,24 @@ The generic-REST + auth surface, in `tcs-service` / `tcs-core`. Start here.
   update, incl. reassigning `idOfUser` (declared `createOnly`+`representsOwnership`) to
   another user; (2) create-time forgery — `DataUtil.ensureHasOwner` fills owner only
   *if absent*, so a client POSTing `{idOfUser:<victim>}` on create had it honored.
-  Fix: (1) also strip `createOnly` on update (line 393); (2) new `forceOwnerToCaller`
-  helper called from the public `create`/`upsert` methods overwrites the ownership attr
-  with the caller (exempt: `internal*` raised-privilege paths via skipValidation, and
-  admin on `adminBypassesOwnership:true` classes for create-on-behalf). `readOnly` left
-  create-settable by design. **Follow-up (Anil's "step beyond", needs analysis):** block
-  client writes to ALL `platform:true`/system attributes on create too (not just
-  ownership) — requires cataloguing which platform attrs are legitimately client-set at
-  create before enforcing; defer to a dedicated pass.
+  Fix: (1) on update strip `createOnly` AND the ownership attribute
+  (`representsOwnership`) — so **the owner is immutable via generic `/data` update for
+  everyone, admins included**, and keying on `representsOwnership` (not only createOnly)
+  also protects custom classes whose owner attr isn't marked createOnly; (2) new
+  `forceOwnerToCaller` helper on the public `create`/`upsert` methods overwrites the
+  ownership attr with the caller (exempt: `internal*` raised-privilege paths via
+  skipValidation, and admin on `adminBypassesOwnership:true` classes for
+  create-on-behalf). `readOnly` left create-settable by design.
+  **Follow-ups:**
+  - *(Anil's "step beyond", needs analysis)* block client writes to ALL
+    `platform:true`/system attributes on create too — requires cataloguing which platform
+    attrs are legitimately client-set at create before enforcing; dedicated pass.
+  - *(ENHANCEMENT — new capability)* **Ownership transfer / reassignment.** Generic CRUD
+    now forbids owner changes entirely, so legitimate reassignment (user offboarding,
+    "move all of X's records to Y", handing a record to a teammate) needs its own
+    sanctioned surface: admin-gated (or owner-initiated), audited, and per-record + bulk
+    "reassign everything owned by user X". Model it after the `/share/*` surface (a
+    dedicated controller, not `/data`). Fold into a small plan when prioritized.
 - **AOS-34 · P2** — `list_users` returns bcrypt hashes. *(strip `password` from projection)*
 - **AOS-23 · P1** — soft-deleted files still served + fresh signed URLs. *(FileController: 404 + refuse download-url on deleted)*
 - **AOS-45 · P2** — no max page size on `/data`. *(clamp `end` server-side)*
