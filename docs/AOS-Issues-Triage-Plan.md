@@ -117,7 +117,17 @@ The generic-REST + auth surface, in `tcs-service` / `tcs-core`. Start here.
 
 Our observability products run on agents; right now codeful agents are 100% down.
 
-- **AOS-17 · P1** — codeful agents crash every turn (`_AgentStateAPI`→`ErrorDetail.code`). *(aos-py-execution agent_handler)* — **lead here.**
+- **AOS-17 · P1 — ✅ FIXED (in `aos-py-execution` develop, needs deploy; compiles).**
+  Root cause: `agent_handler.py:698` read `engine_resp.error.code`, but `ErrorDetail`
+  has no `code` field — it's `type` (the `_error` helpers build `ErrorDetail(type=code,…)`).
+  So whenever a coded-agent handler failed (`not engine_resp.ok`), the *failure-handling*
+  path itself threw `AttributeError: 'ErrorDetail' object has no attribute 'code'`, caught
+  by the outer `except` and re-surfaced as a generic `coded_agent_failed` — i.e. every
+  coded-agent error became the same opaque crash (matching the reported symptom). Fix:
+  `.code` → `.type`. This also **un-masks the real underlying handler error** that was
+  previously hidden. **Retest note for the team:** after deploy, a coded agent that still
+  errors will now surface its actual cause in logs / the failure event — confirm no deeper
+  every-turn failure remains behind the mask (was invisible until now).
 - **AOS-02b · P1** — one-shot agent execution unimplemented (`ONESHOT_PROGRAMMATIC_PENDING`); only the `ctx.llm.process_document` workaround runs. *(pod dispatch route)*
 - **AOS-14 · P2** — `list_functions`/`describe_function` return empty `parameters`. *(discovery projection)*
 - **AOS-40 · P2 (monitor)** — agents do speculative writes from read-only questions; no read-only/confirm tool model.
