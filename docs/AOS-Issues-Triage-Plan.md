@@ -41,7 +41,20 @@ They collide with the top-level list first circulated:
 The generic-REST + auth surface, in `tcs-service` / `tcs-core`. Start here.
 
 - **AOS-33 · P0** — access-link privesc: non-admin mints link for `admin`, exchanges with **no auth** → admin session. **✅ FIX in `tcs-service` develop `ed16b9d` (needs deploy).** Root cause: the target guard checked the bare user row while the exchange minted the tenant/AppRole-resolved identity → app-admins (admin via appRole) passed; and the endpoint only required auth. Fix: (a) reject targets privileged in any active tenant by resolved role/appRoles; (b) require caller be admin or a privileged function-context. *(access-link controller/service, plan-76)*
-- **AOS-43 · P0** — generic `/data` blocklist covered only `AppSecret`/`OtpVerification`; `UserToToken` etc. readable, tokens **plaintext** → refresh into admin. **✅ Part 1 FIX in `tcs-service` develop `5e5f0f3` (needs deploy):** unconditional `HARD_BLOCKED` set in `PlatformClassGuard` (credential/token/PII classes denied in all modes + for function context; dedicated controllers bypass the generic path, so legit function access is unaffected). **Part 2 open:** hash `UserToToken` tokens (currently plaintext) — separate follow-up. *(generic CRUD blocklist done; token storage pending)*
+- **AOS-43 · P0** — generic `/data` blocklist covered only `AppSecret`/`OtpVerification`; `UserToToken` etc. readable, tokens **plaintext** → refresh into admin. **✅ Part 1 FIX in `tcs-service` develop `5e5f0f3` (needs deploy):** unconditional `HARD_BLOCKED` set in `PlatformClassGuard` (credential/token/PII classes denied in all modes + for function context; dedicated controllers bypass the generic path, so legit function access is unaffected). **Part 2 ✅ COMPLETE (premise was stale; in `tcs-service` develop, needs deploy).**
+  Investigation found `UserToToken` (and `Invitation`) tokens have been **SHA-256-hashed
+  at rest since 2026-04-09** (commit b6c026f) — `BaseAuthUMService.hashToken` applied on
+  every write (`createUserToken`/`createInvitation`) and every lookup (`findUserToken`/
+  `findInvitationByToken`); the sole SQL (`FIND_USER_TO_TOKEN_BY_TOKEN_AND_TYPE`) is fed the
+  hash. The "plaintext" report was against a stale build. The one real residual — a
+  transitional **plaintext-fallback** lookup — is now removed: max token TTL is the 30-day
+  Claude-Code refresh token, so all legacy plaintext rows expired 3+ months before this
+  change; the fallback was dead code and its removal deletes the last path that could
+  resolve a plaintext token. OAuth tokens (separate tables) already hashed; JWTs are
+  stateless. **Enhancement (defense-in-depth, not blocking):** `MFA_OTP` tokens are
+  low-entropy (`userId:6-digit`) so a bare-SHA-256 DB leak is brute-forceable within the
+  5-min TTL — consider keyed `CryptoUtil.blindIndex` (HMAC-SHA256) for token hashing,
+  esp. MFA_OTP; scoped follow-up.
 - **AOS-10 · P1 — ⏸ TABLED 2026-08-22 (investigated; revisit).** Confirmed real. Root
   cause: `AclAccessGuard.isPermitted` (called by `DataController`/`QueryController` on
   every op) short-circuits at `AclAccessGuard.java:93` — `if (!ctx.isAgentDelegation())
