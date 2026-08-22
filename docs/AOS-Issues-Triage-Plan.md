@@ -1,5 +1,10 @@
 # AOS Issues — Triage & Work Plan
 
+> **See also `AOS-Master-TODO.md`** — the at-a-glance tracker (deploy state, surfaced
+> follow-ups/enhancements, decisions owed, remaining backlog). This file holds the
+> per-issue detail.
+
+
 **Sources:** AOS-05 (skills docs, team retest 2026-08-16), AOS-06 (platform issues,
 retest 2026-08-16), AOS-07 (plugin issues, retest 2026-08-16), plus two inline
 items (guest-secrets, authGuestEnabled). **Internal.**
@@ -110,7 +115,24 @@ The generic-REST + auth surface, in `tcs-service` / `tcs-core`. Start here.
   present — closing all 3 endpoints + the KOR-08 enriched rows at one choke point, and
   future-proofing any custom-select endpoint. Bonus: also applies to the tenant listing's
   custom select. Default (no-clause) path already excluded these, so it's a no-op there.
-- **AOS-23 · P1** — soft-deleted files still served + fresh signed URLs. *(FileController: 404 + refuse download-url on deleted)*
+- **AOS-23 · P1 — ✅ FIXED (in `tcs-service` develop, needs deploy; build-verified).**
+  Root cause: by-id file reads never apply the soft-delete filter — `DataStoreImpl`'s
+  `addSoftDeleteFilter` helper is dead code (never invoked), and only the attachments
+  listing hand-filters `AND NOT deleted`. So `deleted=true` files were served and got
+  fresh signed URLs. Fix: `if (file2 == null || file2.isDeleted())` 404 guard added to the
+  4 leaf serve/mint/get methods — `downloadSignedUrl`, `downloadFile` (both signed-URL
+  mints), `getFileContent` (inline bytes), `getFile` (metadata); `getMessageAttachments`
+  already filtered. `ctx.files.*` are thin clients over these same endpoints, so covered.
+  Deliberately NOT fixed at the store layer / `resolveFileForAccess` — `File2` overloads
+  `deleted=true` as the "pending upload" marker and the finalize path
+  (`resolveFileForAccess(forFinalize=true)`) must still fetch such rows. **Follow-up (opt):**
+  `deleteFile` calls `storage.delete()` for BOTH soft + permanent delete, so soft-deleted
+  GCS bytes are removed despite the "recoverable" API-doc promise — gate on `permanent`.
+- **AOS-45 · P2 — ✅ ALREADY IMPLEMENTED (verified; no code).** `QueryService._query`
+  clamps `end - start` to `getMaxPageSize()` (configurable `tcs.query.max.page.size`,
+  default 1000) — the single choke point both `/data` list and `/query` flow through.
+  Landed 2026-04-09 with the list endpoint; the report was stale. (`/raw-sql` has its own
+  `RAW_SQL_MAX_ROWS=1000`.)
 - **AOS-45 · P2** — no max page size on `/data`. *(clamp `end` server-side)*
 
 ## Phase 2 — Agent runtime (gates the observability AI + demo)
