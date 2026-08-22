@@ -85,7 +85,18 @@ The generic-REST + auth surface, in `tcs-service` / `tcs-core`. Start here.
     sanctioned surface: admin-gated (or owner-initiated), audited, and per-record + bulk
     "reassign everything owned by user X". Model it after the `/share/*` surface (a
     dedicated controller, not `/data`). Fold into a small plan when prioritized.
-- **AOS-34 · P2** — `list_users` returns bcrypt hashes. *(strip `password` from projection)*
+- **AOS-34 · P2 — ✅ FIXED (in `tcs-service`, needs deploy; build-verified, pushed).**
+  The 3 admin user-listing methods (`UMService.listUsers`, `listUsersWithProfile`/KOR-08,
+  super-admin per-tenant) pass a custom `select u.*` clause, which bypasses the metadata
+  column projection that normally excludes `hidden`/`listHidden` attrs — so `u.*` pulls the
+  bcrypt `password` (already declared `listHidden:true` in `User.json`) into the raw row
+  maps. (No MCP `list_users` tool exists; generic `/data`+`/query` and typed-User paths —
+  login/profile — were already safe; login reads the hash via a direct `dataStore.queryOne`,
+  not `QueryService`.) Fix (contract-honoring, DRY): `QueryService._query` now strips
+  `hidden`/`listHidden` attribute columns from result rows when a custom `selectClause` is
+  present — closing all 3 endpoints + the KOR-08 enriched rows at one choke point, and
+  future-proofing any custom-select endpoint. Bonus: also applies to the tenant listing's
+  custom select. Default (no-clause) path already excluded these, so it's a no-op there.
 - **AOS-23 · P1** — soft-deleted files still served + fresh signed URLs. *(FileController: 404 + refuse download-url on deleted)*
 - **AOS-45 · P2** — no max page size on `/data`. *(clamp `end` server-side)*
 
