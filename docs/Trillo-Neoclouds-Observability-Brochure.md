@@ -10,20 +10,26 @@ it.
 
 > **Business impact:** Higher fleet utilization and margin, faster failure detection, accurate per-tenant billing, stronger SLAs, and confident capacity planning.
 
-## Why Neoclouds Observability
+## The Problem
 
-- **Sell more of what you own** — surface idle and underused GPUs so occupancy, and margin, go up.
-- **Catch failures before tenants do** — detect failing GPUs, nodes, and fabric early, with the blast radius.
-- **Bill accurately** — metered, per-tenant GPU usage you can charge and reconcile.
-- **Keep tenants happy** — per-tenant SLA visibility and noisy-neighbor detection.
-- **Plan capacity with confidence** — utilization trends and oversubscription headroom.
+- **Idle GPUs quietly burning margin.** You own the hardware, but you cannot see which GPUs sit idle or underused — so occupancy, and margin, leak.
+- **Failures your tenants find first.** A failing GPU, node, or fabric link takes down tenant jobs before you know, and you cannot see the blast radius.
+- **Billing you cannot defend.** Without accurate per-tenant metering, GPU-hours go unbilled and disputes cost you revenue.
+- **Capacity planning by guesswork.** You cannot tell whether to buy more GPUs or pack tenants tighter, so you over-build or oversubscribe blind.
+
+## How Trillo Solves It
+
+- **Reclaim idle capacity** — surface idle and underused GPUs with the revenue at stake, per tenant and per cluster. → *Higher occupancy and margin.*
+- **Catch failures before tenants do** — detect failing GPUs, nodes, and fabric from Xid / ECC / thermal / fabric signals, with blast radius and AI-assisted root cause. → *Fewer tenant-visible incidents.*
+- **Bill every GPU-hour** — metered, per-tenant GPU usage, reconciled and exportable, with per-tenant SLA and noisy-neighbor visibility. → *Accurate, defensible revenue.*
+- **Plan the next buildout with data** — utilization trends and safe oversubscription headroom. → *Confident capacity decisions.*
 
 ## Why Trillo
 
-- **OliverDB performance** — high-performance telemetry storage and analytics at GPU-fleet scale.
-- **Model-driven customization** — customize dashboards, metrics, and policies and hot-deploy without redevelopment.
-- **Complete platform out of the box** — health, utilization, reliability, billing, SLAs, and AI intelligence.
-- **Runs in your environment** — your fleet and tenant data stay with you, with simple operations.
+- **100% ownership of your data** — runs entirely in your environment; your fleet and tenant data never leave it.
+- **A fraction of the cost** — comparable capability at a fraction of the total cost of ownership.
+- **OliverDB** — petabyte-scale telemetry storage and analytics at a fraction of the cost, without the operational complexity.
+- **Easy to customize** — model-driven and hot-deployable; and we help you customize dashboards, billing rules, and workflows.
 
 ## Complete Platform
 

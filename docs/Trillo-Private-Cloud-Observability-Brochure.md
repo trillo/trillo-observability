@@ -10,20 +10,26 @@ environment.
 
 > **Business impact:** Higher GPU utilization, cost recovery through chargeback, lower MTTR, confident capacity planning, and audit-ready governance.
 
-## Why Private Cloud Observability
+## The Problem
 
-- **Get your money's worth** — find idle and underused GPUs and reclaim them.
-- **Recover cost fairly** — attribute GPU spend to the teams and projects that use it.
-- **Keep training and inference running** — detect failures early and cut job interruptions.
-- **Plan capacity** — know whether to buy more GPUs or simply schedule better.
-- **Stay compliant** — governance, policy, and audit, on-premise or air-gapped.
+- **Expensive GPUs sitting idle.** You bought the hardware, but you cannot see which GPUs are idle or underused across teams — so costly capacity is wasted.
+- **No fair way to recover cost.** You cannot attribute GPU spend to the teams and projects that use it, so there is no chargeback and no accountability.
+- **Jobs failing without warning.** GPU, node, or fabric failures interrupt long training and inference runs before you catch them, and you cannot see which jobs are hit.
+- **Buy-or-schedule decisions by guesswork.** You cannot tell whether you need more GPUs or just better scheduling, so budgets are set blind.
+
+## How Trillo Solves It
+
+- **Reclaim idle capacity** — surface idle and underused GPUs with the cost at stake, per team and per cluster. → *Higher utilization.*
+- **Recover cost fairly** — chargeback and showback that attribute GPU spend to teams, projects, and cost centers. → *Defensible cost recovery.*
+- **Catch failures before jobs die** — detect failing GPUs, nodes, and fabric from Xid / ECC / thermal / fabric signals, with job-interruption analysis and AI-assisted root cause. → *Lower MTTR, fewer failed runs.*
+- **Plan buy-vs-schedule with data** — utilization trends that show whether to buy more GPUs or schedule better, with audit-ready governance throughout. → *Confident capacity planning.*
 
 ## Why Trillo
 
-- **OliverDB performance** — high-performance telemetry storage and analytics at GPU-fleet scale.
-- **Model-driven customization** — customize dashboards, metrics, and policies and hot-deploy without redevelopment.
-- **Complete platform out of the box** — health, utilization, reliability, cost, governance, and AI intelligence.
-- **Runs on-premise or in your private cloud** — your data stays with you, with simple operations.
+- **100% ownership of your data** — runs on-premise or in your private cloud, air-gap-capable; your data never leaves your environment.
+- **A fraction of the cost** — comparable capability at a fraction of the total cost of ownership.
+- **OliverDB** — petabyte-scale telemetry storage and analytics at a fraction of the cost, without the operational complexity.
+- **Easy to customize** — model-driven and hot-deployable; and we help you customize dashboards, cost rules, and workflows.
 
 ## Complete Platform
 
