@@ -141,27 +141,39 @@ Admin key rotation is on the OliverDB console. When rotated, AOS restarts (or re
 
 ---
 
-## 4. Pod egress — updating the HTTPS qualified-gate
+## 4. Pod egress
 
-Per the Aug 21 decisions on pod de-privilege (memory: `project_aos44_pod_deprivilege`), the aos-py-execution pod locks outbound egress via a **qualified HTTPS target list**. OliverDB isn't on it today; the toolkit's HTTPS helper would refuse the write.
+### 4.1  Reality check — no in-process HTTPS gate today  *(revised 2026-08-26)*
 
-### 4.1  What must change
+An earlier draft of this section assumed the aos-py-execution pod already enforced a **per-app HTTPS qualified-target gate** in the Python toolkit, and that Slice C would need to update it. That was wrong — verified by grep across `aos-py-execution/`, `aos_toolkit/`, and their docs:
 
-- **Add the customer's OliverDB hostname** to the pod's outbound allowlist. Format: fully-qualified DNS name, TLS-verified.
-- Because the hostname is **customer-specific** (each tenant has their own OliverDB slot at `https://<tenant>.<region>.olivercloud.ai`), the allowlist can't be a static string — it must be per-application.
+- **No in-process host allowlist exists today.** `ctx.service` is a plain `httpx` wrapper. `executor.py`'s `ALLOWED_MODULES` is an *import* allowlist and its own comment says it is "a **guardrail, not the security boundary**".
+- **The boundary is infra-level, and infra-level is not built yet.** Two design docs describe the intended future model — `trillo-aos/docs/aos-44-pod-deprivilege-design.md` (Phase 3) and `trillo-aos/docs/aos-execution-pod-hardening.md`. Both spec a **Kubernetes NetworkPolicy** allowing only `{AOS, storage.googleapis.com}` outbound, deny-by-default. Memory (`project_aos44_pod_deprivilege`, 2026-08-21) records the design as *"decisions locked, build pending."*
+- **The "recently implemented qualified gates" phrase was of the design intent, not shipped code.** Slice C's actual scope shrinks accordingly.
 
-### 4.2  How
+### 4.2  What Slice C actually delivers instead
 
-Two options; I recommend the second.
-
-- **Option A — static allowlist entry per env.** Hardcode `*.olivercloud.ai` (subdomain wildcard). Simple, but too coarse — a compromised pod could hit *any* OliverDB tenant, not only the tenant it's scoped to.
-- **Option B (recommended) — dynamic allowlist from AppConfig.** AOS reads `AppConfig.analyticsDbUrl` for the invoking app and injects it as an env-var-driven allowlist entry at pod launch:
+**Per-invocation credential propagation via HTTP headers**, not env-var injection at pod launch. AOS is the *sender* on `/event` (async) and `/execute` (sync); Slice C attaches four request-scoped headers when the invoking app has OliverDB enabled:
 
 ```
-POD_HTTPS_ALLOWLIST=aos.trillo.io,api.gemini.googleapis.com,<tenant>.us-west-2.aws.olivercloud.ai
+X-Trillo-Telemetry-Sink:            oliverdb
+X-Trillo-Analytics-Db-Url:          https://<tenant>.us-west-2.aws.olivercloud.ai
+X-Trillo-Analytics-Db-Token:        <scoped write-only token, minted per app+purpose>
+X-Trillo-Analytics-Db-Principal:    aos-app-<appId>-fn:<name>   (debug label)
 ```
 
-The Python toolkit's HTTPS helper reads this env var on startup and permits only those hosts. Per-app allowlist, per-pod. Compromised pod = compromised only for that tenant.
+The pod's `/event` and `/execute` handlers lift these into an aos_toolkit `ContextVar` (`_analytics_db_config`) for the duration of the invocation and reset in `finally`. When headers are absent (the common case — most invocations don't ship telemetry to an analytics DB), the ContextVar stays `None` and Slice D's `ctx.telemetry.*` falls back to the Postgres sink.
+
+**Why headers, not env vars.** Ephemeral Knative pods can't get per-app env vars — pod deploy is per-service, not per-invocation. Env vars would either need to encode the union of all customer OliverDB tenants (too coarse, bad for compromise blast radius) or churn every deploy. Headers are per-invocation, per-app, and match how `Authorization` already carries the per-invocation JWT.
+
+### 4.3  Future — when plan-44 Phase 3 lands
+
+When the NetworkPolicy egress lock ships (design-locked 2026-08-21; build TBD), OliverDB's hostname needs to be on the deny-by-default allowlist alongside `{AOS, storage.googleapis.com}`. Options at that time:
+
+- **Option A — static wildcard:** `*.olivercloud.ai` on the NetworkPolicy. Coarser than ideal but tractable: a compromised pod could reach other OliverDB tenants at the network layer, but OliverDB's per-key `inject_where` still restricts what it can write. Given all Trillo customers are on Trillo-managed OliverDB tenants, the exposure is small.
+- **Option B — per-tenant allowlist:** one NetworkPolicy per app namespace, generated at deploy. Cleaner blast-radius story; more infra complexity.
+
+Either way, this is a **DevOps task at that time**, not an aos-py-execution code change. Nothing to build in Slice C for this piece.
 
 ### 4.3  New AppConfig fields — vendor-neutral by design
 
@@ -290,11 +302,31 @@ Combined because the OliverDB admin API is now known to be a live REST surface (
 
 - **Deliverable:** Java can mint + revoke scoped keys against the live OliverDB tenant; smoke-tested via `/admin/oliverdb/health`.
 
-### 8.2  Slice C — Pod launch: inject OliverDB env + allowlist
-- Extend the pod-launch env-var set to include `TRILLO_TELEMETRY_SINK`, `OLIVERDB_URL`, `OLIVERDB_SECRET`, `POD_HTTPS_ALLOWLIST`.
-- Compute allowlist from AppConfig (§4.2 Option B).
-- On the Python side, the toolkit's existing HTTPS gate reads `POD_HTTPS_ALLOWLIST` and permits those hosts. **Update the qualified-gate implementation** if it's currently a hardcoded list — refactor to accept the env var. This is the "recently implemented qualified gates" hook the user flagged.
-- **Deliverable:** a pod launched for an Oliver-enabled app can reach the OliverDB hostname (verified by a smoke curl inside the pod).
+### 8.2  Slice C — Per-invocation credential propagation via headers  *(revised 2026-08-26)*
+
+Shrunk from the original scope after §4.1's reality check — no in-process HTTPS gate exists to update.
+
+**Java (trillo-aos `FnService.java`):**
+- New private `attachAnalyticsDbHeadersIfEnabled(headers, functionName)` helper called from `executeOnPod` (sync + async paths both touch the same header block).
+- Reads `AppConfig.analyticsDbEnabled` in the current tenant's schema. When false / missing / row unreadable → silent skip (non-breaking).
+- When true, calls `OliverDbAdminService.mintWriteKey(appId, "fn:<name>")`. The `CachedKey.toMap()` shape gained a `url` field so the helper doesn't need a second URL-resolve round trip.
+- Attaches four headers: `X-Trillo-Telemetry-Sink`, `X-Trillo-Analytics-Db-Url`, `X-Trillo-Analytics-Db-Token`, `X-Trillo-Analytics-Db-Principal`.
+- All failure paths log at WARN and proceed without headers — telemetry plumbing must never break a function invocation.
+
+**Python (aos-py-execution `main.py` + aos_toolkit `_context.py`):**
+- New `_analytics_db_config: ContextVar[dict | None]` in `aos_toolkit._context`, with `set_analytics_db_config` / `reset_analytics_db_config` / `get_analytics_db_config` exported from the toolkit's public API.
+- `/event` handler reads the four headers off `request.headers`, builds a config dict via `_build_analytics_db_config`, sets the ContextVar, and resets in `finally`.
+- `/execute` handler does the same, using four new `Header()` params in its FastAPI signature.
+- ContextVar shape when bound: `{"url": str, "token": str, "principal": str | None, "sink": "oliverdb"}`. When headers absent → ContextVar stays `None`, Slice D's `ctx.telemetry.*` will fall back to Postgres.
+
+**Docs:** §4 of this plan rewritten to reflect the actual pod egress model + Slice C's real deliverables.
+
+**Non-breaking guarantees:**
+- Apps without `AppConfig.analyticsDbEnabled=true` → no header changes, no behavior change.
+- OliverDB mint failure → warn log + skip; the function still runs, just to Postgres.
+- Pod running an older toolkit version → unknown headers are ignored by FastAPI, ContextVar stays `None`.
+
+- **Deliverable:** with an Oliver-enabled app, an invocation reaches the pod with a valid scoped write token in headers, discoverable via `aos_toolkit.get_analytics_db_config()`. Ready for Slice D to consume.
 
 ### 8.3  Slice D — `ctx.telemetry` helper (Python)
 - New module `aos_toolkit/telemetry.py` — `emit_span`, `emit_log`, `emit_event`, `emit_batch`, `flush`, `query`, `query_batch`.
@@ -354,3 +386,5 @@ Combined because the OliverDB admin API is now known to be a live REST surface (
 | Version | Date | Author | Notes |
 |---|---|---|---|
 | 0.1 | 2026-08-22 | Trillo (via Claude Code session) | Initial draft. Architecture pivoted from Java-proxy to pod-direct-write per user constraint (400 K events/sec target). Ten-slice plan; slice J deferred. |
+| 0.2 | 2026-08-26 | Trillo | Slices A + B shipped as combined Slice AB. Admin API confirmed live. §1.4 (Text column) rewritten for one-Text constraint. AppConfig field renamed vendor-neutral (analyticsDb*). |
+| 0.3 | 2026-08-26 | Trillo | §4 rewritten after code check: no in-process HTTPS gate exists (plan-44 Phase 3 design, unbuilt). Slice C reshaped to per-invocation header propagation. Slice C shipped (FnService + main.py + _context.py). |
