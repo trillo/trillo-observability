@@ -62,17 +62,21 @@ Items are grouped by category and tagged **P0 / P1 / P2** by their commercial-an
 - If neither side has status_code, later write wins per field.
 - If both sides supply a summable field (tokens), take the later value (final is authoritative). Alternatively, expose an `ingest_mode: last-write-wins|greatest|sum` per column.
 
-### 1.4  `Text` column type + `text_match()` support in the observability schema  — **P1**
+### 1.4  A `Text` column + `text_match()` support in the observability schema  — **P1**
 
-**What.** The current schema has no `Text` column. Add `gen_ai.prompt` and `gen_ai.completion` (or generic `input_text` / `output_text`) as `Text` columns, indexed for `text_match()`.
+**What.** The current schema has no `Text` column. Add one — call it `body` — indexed for `text_match()`, carrying the OTLP LLM span's completion (`gen_ai.completion`) verbatim. The corresponding input (`gen_ai.prompt`) stays in `attrs` — `attrs.gen_ai.prompt` LIKE-prefix queries are index-accelerated for lookup, and the completion carries most of the analytical value anyway (hallucination triage, drift, output-shape analysis).
+
+**Why single, not paired.** OliverDB's current schema constraint (per `oliverdb_onboarding_admin.md`, verified 2026-08-26): **"At most ONE Text column per schema — the FTS sidecar indexes a single text field; a second is rejected at `POST /v1/schema`."** So an earlier draft of this section calling for `input_text` + `output_text` was wrong. Recommendation is now one column.
 
 **Why for AI observability.**
-- "What did the agent actually say?" is the single most common ad-hoc query in incident response. Today's `attrs.gen_ai.prompt` LIKE pattern is not indexed for full-text and is length-bounded by the attrs blob.
-- Enables prompt-injection detection retrospectives, hallucination triage, and grounding-based drift analyses.
+- "What did the agent actually say?" is the single most common ad-hoc query in incident response. Today's `attrs.gen_ai.completion` LIKE pattern is not indexed for full-text and is length-bounded by the attrs blob.
+- Enables hallucination triage, output-shape drift analyses, and grounding-based verification.
 
 **Suggested behavior.**
-- Two dedicated `Text` columns on the span row: `input_text`, `output_text`. Truncation limit disclosed and configurable.
+- One dedicated `Text` column on the span row: `body`. Truncation limit disclosed and configurable.
 - `text_match()` with a minimal query grammar (AND / OR / phrase / prefix).
+
+**Longer-term ask (P2, separate item):** if OliverDB team can add support for **N Text columns per schema** (each backed by its own FTS sidecar), we can split back into input + output. That's a real product ask worth discussing separately — the single-Text limit is friendly to storage but limits the observability queries we can build.
 
 ### 1.5  Streaming ingest via Kafka / PubSub  — **P2**
 

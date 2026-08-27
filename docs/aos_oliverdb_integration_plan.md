@@ -1,8 +1,9 @@
 # AOS ⇄ OliverDB Integration Plan
 
-**Document Version:** 0.1 (draft)
-**Status:** Design — ready for review before slice-1 build.
+**Document Version:** 0.2 (draft)
+**Status:** Design — ready for slice-AB build. Admin API surface verified live against the tenant on 2026-08-26.
 **Companion to:**
+- `oliverdb_onboarding.md` — the OliverDB team's tenant onboarding doc (copied verbatim, source of truth for wire shapes)
 - `oliverdb_improvements.md` — the OliverDB schema/API wishlist this plan leans on
 - `ingest_to_oliverdb_from_agent_frameworks.md` — the parallel design for **customer** agents (ADK / LangChain / CrewAI)
 - `Telemetry-Ingestion-Endpoint-Design.md` — the Postgres small-setup ingestion (this doc is the OliverDB counterpart)
@@ -95,10 +96,23 @@ AOS holds the OliverDB **admin key** (in `/Users/anil/workspace2/.claude/.env` f
 At function-invocation time:
 
 1. AOS decides whether the function needs OliverDB access (a new bit on `FunctionM.telemetryScopes` or similar — TBD, likely a slice-1 addition to the metadata).
-2. If yes, AOS mints (or reuses from a small in-process cache) a **scoped write-only key** for the target agent(s):
-   - `INSERT`-only privilege
-   - Row pin on `resource_attrs.service.namespace = <application_id>` (§2.2 of the agent-frameworks doc)
-   - TTL: 10 minutes (or the pod's max invocation timeout, whichever is smaller)
+2. If yes, AOS mints (or reuses from a small in-process cache) a **scoped write-only key** for the target agent(s) via `POST /v1/admin/keys` with the admin bearer:
+
+   ```json
+   {
+     "principal": "aos-app-568-simulator",
+     "can_write": true,
+     "admin": false,
+     "policy": {
+       "inject_where": [
+         {"dim": "resource_attrs.service.namespace",
+          "op": "Eq", "values": ["568"]}
+       ]
+     }
+   }
+   ```
+
+   Response: `{"id": "…", "token": "…", …}` — the `token` is what goes into the pod's env; `id` is what we call `DELETE /v1/admin/keys/:id` with on revoke. TTL: 10 minutes (or the pod's max invocation timeout, whichever is smaller). The `inject_where` is enforced by OliverDB's engine — the pod cannot write a span outside its application namespace even if the code tries. **Wire-shape source of truth:** `oliverdb_onboarding.md` §"Scoped keys for your agents" + the admin doc's policy field table.
 3. AOS launches the pod with these env vars:
 
 ```
@@ -141,7 +155,7 @@ Per the Aug 21 decisions on pod de-privilege (memory: `project_aos44_pod_deprivi
 Two options; I recommend the second.
 
 - **Option A — static allowlist entry per env.** Hardcode `*.olivercloud.ai` (subdomain wildcard). Simple, but too coarse — a compromised pod could hit *any* OliverDB tenant, not only the tenant it's scoped to.
-- **Option B (recommended) — dynamic allowlist from AppConfig.** AOS reads `AppConfig.oliverdbUrl` for the invoking app and injects it as an env-var-driven allowlist entry at pod launch:
+- **Option B (recommended) — dynamic allowlist from AppConfig.** AOS reads `AppConfig.analyticsDbUrl` for the invoking app and injects it as an env-var-driven allowlist entry at pod launch:
 
 ```
 POD_HTTPS_ALLOWLIST=aos.trillo.io,api.gemini.googleapis.com,<tenant>.us-west-2.aws.olivercloud.ai
@@ -149,11 +163,19 @@ POD_HTTPS_ALLOWLIST=aos.trillo.io,api.gemini.googleapis.com,<tenant>.us-west-2.a
 
 The Python toolkit's HTTPS helper reads this env var on startup and permits only those hosts. Per-app allowlist, per-pod. Compromised pod = compromised only for that tenant.
 
-### 4.3  New AppConfig field
+### 4.3  New AppConfig fields — vendor-neutral by design
 
-Add `AppConfig.oliverdbUrl` (String, nullable). Populated at app-deploy time (or via a small admin UI). When null, the pod runs in Postgres-sink mode regardless of `telemetrySink` requests.
+Add `AppConfig.analyticsDbUrl` (String, nullable). Populated at app-deploy time (or via a small admin UI). When null, resolve via the env-level fallback `tcs.analytics.db.default.url`; when both null, the pod runs in Postgres-sink mode regardless of `telemetrySink` requests.
 
-Related: `AppConfig.oliverdbEnabled` (Boolean, default false) — an explicit off-switch that overrides `telemetrySink=oliverdb` requests. Belt-and-braces for the case where a customer wants Postgres-only writes even if the URL is set.
+Related: `AppConfig.analyticsDbEnabled` (Boolean, default false) — explicit off-switch that overrides `telemetrySink=oliverdb` requests. Belt-and-braces for the case where a customer wants Postgres-only writes even if the URL is set.
+
+**Why `analyticsDb*` and not `oliverdb*`.** The URL field is *what the app points at for its columnar/analytical big-data store*. Today the only thing on the other end is OliverDB, but the field's semantics — "a big-data store the app writes analytics to" — apply equally to ClickHouse, Tempo, Grafana Cloud, or a future OliverDB successor. Naming it vendor-neutral means we don't rename the ClassM field the day we integrate a second backend; we add an `AppConfig.analyticsDbKind` discriminator (`oliverdb`|`clickhouse`|…) and route to the right client. **Vendor-specific bits stay vendor-specific**: the admin credential env var is `OLIVERDB_ADMIN_SECRET` (not `ANALYTICS_DB_ADMIN_SECRET`) because auth is a per-vendor concept; same for the pod's `TRILLO_TELEMETRY_SINK=oliverdb` — the *write path* is vendor-specific. Only the *config surface* is neutral.
+
+Resolution order at pod-launch time:
+
+1. `AppConfig.analyticsDbUrl` (per-app override — this is the sharding lever)
+2. `tcs.analytics.db.default.url` (env-level default, e.g. `https://trillo.us-west-2.aws.olivercloud.ai` in dev)
+3. If both null → analytics-sink disabled for this pod.
 
 > **Note on AppConfig persistence** (memory `project_appconfig_deploy_persist_gotcha`): every new `AppConfig.*` field must be added to `AOS DeployAppMetadata.bootstrapAppConfig` **and** to the hand-written INSERT branch, or deploy silently drops the value. Booleans need the `multiTenant` pattern, not `copyIfPresent`. Slice §8.2 accounts for this.
 
@@ -196,7 +218,7 @@ The `OliverDbClient` reads the admin key from platform config, mints scoped keys
 Same primitive as write-scoped keys, different scope:
 - `SELECT`-only privilege
 - Row pin: `resource_attrs.service.namespace = <application_id>`
-- Optional column redaction (`input_text` / `output_text` scrubbed for non-PII-authorized consumers — depends on `oliverdb_improvements.md §3.4`)
+- Optional column redaction (the `body` Text column scrubbed for non-PII-authorized consumers — depends on `oliverdb_improvements.md §3.4`)
 - TTL 15 min, cached similarly to the write path
 
 The SRE Copilot agent gets its own scoped read key with tighter scope (see `SRE-Copilot-Tool-Manifest.md`) — that's out of scope for this AOS plan.
@@ -243,32 +265,44 @@ The integration must observe itself, or its failures become invisible.
 
 Numbered slices, each self-contained. Order = dependency order.
 
-### 8.1  Slice A — OliverDB config plumbing  *(prereq for everything)*
-- Add `AppConfig.oliverdbUrl` + `AppConfig.oliverdbEnabled` fields (per §4.3, including `DeployAppMetadata.bootstrapAppConfig` gotcha).
-- Add admin-key env var (`OLIVERDB_ADMIN_SECRET`) to tcs-service platform config; read via `PlatformConfig`.
-- Admin UI: a small section in AppConfig editor for the two new fields.
-- **Deliverable:** an app can be marked Oliver-enabled with a URL; admin key is available to Java.
+### 8.1  Slice AB — config plumbing + scoped-key minting *(combined; prereq for everything)*
 
-### 8.2  Slice B — Java scoped-key minting
-- `OliverDbAdminService.mintWriteKey(appId, purpose)` — calls OliverDB console API (or whatever mint endpoint the OliverDB team exposes) to mint a scoped write-only key.
-- In-process LRU cache with 8-minute TTL.
-- Same for `mintReadKey(appId, purpose)`.
-- Unit tests + a small `/admin/oliverdb/mint-test` endpoint to verify against the live OliverDB slot.
-- **Deliverable:** Java can mint scoped keys on demand.
+Combined because the OliverDB admin API is now known to be a live REST surface (`POST /v1/admin/keys` etc., verified 2026-08-26). Splitting A from B would have shipped stub code in A that B immediately replaces; one slice avoids the throwaway.
 
-### 8.3  Slice C — Pod launch: inject OliverDB env + allowlist
+**Config plumbing:**
+- Add `AppConfig.analyticsDbUrl` (String, nullable) + `AppConfig.analyticsDbEnabled` (Boolean, default false) fields (per §4.3, including `DeployAppMetadata.bootstrapAppConfig` gotcha for both fields; boolean uses the `multiTenant` pattern).
+- Add platform config: `tcs.analytics.db.default.url` (env-level fallback URL) and `tcs.oliverdb.admin.secret` (from `OLIVERDB_ADMIN_SECRET` env). Wired through `PlatformConfig` / `application-{env}.yml`.
+- Admin UI: two new fields in the AppConfig editor.
+
+**Scoped-key minting service:**
+- `OliverDbAdminService` in tcs-service. Interface:
+  ```java
+  Result mintWriteKey(long appId, String purpose);   // returns {token, id, ttlSeconds}
+  Result mintReadKey (long appId, String purpose);
+  Result revokeKey   (String keyId);
+  Result health      (long appId);                    // pings /v1/admin/keys via app's URL
+  ```
+- Impl calls the concrete REST surface documented in `oliverdb_onboarding.md` §"Admin API" — `POST /v1/admin/keys` with the policy shape in §3.1 of this doc.
+- Resolves the URL per §4.3 order (AppConfig → env default).
+- In-process LRU cache keyed by `(appId, purpose, kind)`, 8-minute TTL.
+- `/admin/oliverdb/health` GET endpoint — invokes `.health(appId)` for admin smoke tests.
+- Unit tests + one integration test against the live dev tenant (guarded behind an env-var).
+
+- **Deliverable:** Java can mint + revoke scoped keys against the live OliverDB tenant; smoke-tested via `/admin/oliverdb/health`.
+
+### 8.2  Slice C — Pod launch: inject OliverDB env + allowlist
 - Extend the pod-launch env-var set to include `TRILLO_TELEMETRY_SINK`, `OLIVERDB_URL`, `OLIVERDB_SECRET`, `POD_HTTPS_ALLOWLIST`.
 - Compute allowlist from AppConfig (§4.2 Option B).
 - On the Python side, the toolkit's existing HTTPS gate reads `POD_HTTPS_ALLOWLIST` and permits those hosts. **Update the qualified-gate implementation** if it's currently a hardcoded list — refactor to accept the env var. This is the "recently implemented qualified gates" hook the user flagged.
 - **Deliverable:** a pod launched for an Oliver-enabled app can reach the OliverDB hostname (verified by a smoke curl inside the pod).
 
-### 8.4  Slice D — `ctx.telemetry` helper (Python)
+### 8.3  Slice D — `ctx.telemetry` helper (Python)
 - New module `aos_toolkit/telemetry.py` — `emit_span`, `emit_log`, `emit_event`, `emit_batch`, `flush`, `query`, `query_batch`.
 - Postgres sink path: delegates to existing `ctx.data.create` / `ctx.data.query`.
 - OliverDB sink path: in-process buffer (1000 spans / 1 MiB / 500 ms), HTTP POST to `/v1/ingest` with the semantic-convention conforming shape from `ingest_to_oliverdb_from_agent_frameworks.md §3`.
 - **Deliverable:** any function can `ctx.telemetry.emit_span(...)` and it lands in the right place.
 
-### 8.5  Slice E — Update `generate_live_telemetry` emitter
+### 8.4  Slice E — Update `generate_live_telemetry` emitter
 - Add `telemetrySink` param (default `postgres`).
 - Replace direct `ctx.data.create("OtlpSpan"/"OtlpLog"/"OtlpEvent", …)` with `ctx.telemetry.emit_*`.
 - Add `gen_ai.usage.input_tokens` / `gen_ai.usage.output_tokens` and `gen_ai.system` / `gen_ai.request.model` on the `llm` span (per `oliverdb_improvements.md §4.3`).
@@ -276,29 +310,29 @@ Numbered slices, each self-contained. Order = dependency order.
 - Update `seed_demo_scenarios` and `process_execution_telemetry` similarly.
 - **Deliverable:** the same simulator can populate Postgres or OliverDB from one invocation.
 
-### 8.6  Slice F — Java read client
+### 8.5  Slice F — Java read client
 - `OliverDbClient` service in tcs-service, wired from the mint service in Slice B.
 - Small `/admin/observability/query` endpoint (JSON in, JSON out) for internal admin tooling.
 - **Deliverable:** Java-side callers can query OliverDB with a scoped read key.
 
-### 8.7  Slice G — Migrate first sweeper to OliverDB
+### 8.6  Slice G — Migrate first sweeper to OliverDB
 - Pick `sweep_reliability_health` (or another single sweeper) as the pilot.
 - Rewrite from `ctx.data.query("OtlpSpan", …)` to `ctx.telemetry.query("SELECT … FROM t WHERE …")`.
 - Verify output matches Postgres-sink runs.
 - **Deliverable:** one production sweeper runs against OliverDB end-to-end.
 
-### 8.8  Slice H — Migrate remaining sweepers + analyzers
+### 8.7  Slice H — Migrate remaining sweepers + analyzers
 - `sweep_governance_audit`, `detect_behavioral_drift`, `analyze_latency`, `get_top_token_consumers`, `alert_rule_evaluator`, `run_sweeper_pass`.
 - Each one PR-sized; sequence by risk.
 - **Deliverable:** all read consumers run against OliverDB.
 
-### 8.9  Slice I — Self-observability
+### 8.8  Slice I — Self-observability
 - Wire the toolkit helper to emit its own spans (`service.name=trillo.telemetry.helper`).
 - Admin dashboard tile in Trillo AI UI.
 - Basic alert rules.
 - **Deliverable:** OliverDB write health is visible + alerted.
 
-### 8.10  Slice J (v2) — Partitioning for scale
+### 8.9  Slice J (v2) — Partitioning for scale
 - Deferred. Kicks in when we approach the single-pod ceiling.
 - Design: per-agent pod pool with per-agent scoped keys and `service.name` row pins.
 
@@ -307,7 +341,7 @@ Numbered slices, each self-contained. Order = dependency order.
 ## 9. Open questions
 
 1. **OliverDB scoped-key mint API.** Do they expose a REST endpoint the Java admin service calls (`POST /admin/keys`), or only their console UI? If UI-only in the near-term, we may need a manual pre-provisioning step + AOS reads keys from Secret Manager for slice A/B.
-2. **`AppConfig.oliverdbUrl` per-env.** Multi-env AOS (memory: `project_multi_env_model`) has per-env config. Does OliverDB URL differ by env, or is one URL shared across envs? If per-env, the field lives on `AppEnv` not `AppConfig` — small refactor.
+2. **`AppConfig.analyticsDbUrl` per-env.** Multi-env AOS (memory: `project_multi_env_model`) has per-env config. Does OliverDB URL differ by env, or is one URL shared across envs? If per-env, the field lives on `AppEnv` not `AppConfig` — small refactor.
 3. **Simulator concurrency.** Does the `generate_live_telemetry` simulator today run as one function call producing N spans sequentially, or is there already a batch/parallel model? If sequential, the OliverDB batch buffer masks the slowness; if the user wants real per-agent parallelism in v1 (not v2), slice §8.10 moves up.
 4. **`ctx.data.query` compatibility.** For consumers we don't want to migrate immediately, is a dispatcher (Option B in §5.4) worth building as a fallback, or do we commit to the pure-SQL migration path?
 5. **Java consumer scope.** Beyond admin / alert-scheduler use, is there a plan for Java-side app code (not admin) to read observability data? If yes, we may need a general-purpose Java toolkit surface, not only an admin client.
