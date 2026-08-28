@@ -98,8 +98,7 @@ claude plugin install sre@sre
 ```
 
 The MCP URL is env-overridable: `${SRE_MCP_URL:-https://aos.trillo.ai/api/v2.0/mcp}`
-(the default host in `.mcp.json` is a **placeholder** — set the env var to a real
-endpoint). For dev:
+(defaults to production `https://aos.trillo.ai/api/v2.0/mcp`; override with `SRE_MCP_URL` for dev or self-hosted environments). For dev:
 
 ```bash
 # 3. point at the dev AOS
