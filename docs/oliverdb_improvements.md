@@ -261,7 +261,75 @@ Once §1.2 (semantic-convention pull-outs on ingest) lands on OliverDB, these at
 
 ---
 
-## 5. Operational primitives
+## 5. Multi-tenant scan sharing & sweep amortization
+
+The Trillo AI Agent Observability sweeper fleet runs the SAME queries against different app tenants on a schedule. Today each sweeper hits its own tenant's OliverDB slot; at multi-tenant scale (a Trillo AOS deployment hosting many customer apps) we'd like to run one query and get answers for many tenants from one storage scan, and reduce the total scan-count-per-scheduled-job across the fleet. This section is our formal ask for that class of primitive.
+
+### 5.1  Multi-tenant scan sharing — one scan, N tenants  — **P1**
+
+**What.** A single query issued against N tenant scopes at once, executed as ONE storage scan, returning per-tenant result rows. Two possible shapes for the request:
+
+- **Explicit tenant list.** `POST /v1/multi_query` with body `{tenants: ["acme","initech","umbrella"], sql: "SELECT service_name, count(*) FROM t GROUP BY service_name"}`. Response includes rows tagged by tenant.
+- **Implicit via row pin.** A "cluster admin" key whose row pin is a *set* rather than a single value; the engine rewrites the query to `GROUP BY resource_attrs.tenant_id, …` and returns tenant-partitioned rows.
+
+Either shape lands the same win: **N tenants' queries feed off ONE storage scan.**
+
+**Why for Trillo AOS + RLS.**
+- Trillo AOS is deploying as a multi-tenant runtime where each customer app is a tenant. Sweepers like `analyze_latency`, `sweep_reliability_health`, `discover_agent_inventory` will run for every tenant on the same cadence. N tenants × the same SQL = N scans today; one scan tomorrow.
+- Even in single-tenant Trillo deployments where each tenant has its own OliverDB slot, this primitive helps for the platform's own cross-tenant health dashboards.
+- Aligns with columnar analytics' natural strength — one scan feeds many aggregations. `POST /v1/query_batch` already exists for many-queries-one-window; this extends the shape to many-tenants-one-query.
+
+**Suggested behavior.**
+- Response includes a per-tenant status: succeeded / policy-denied / no-data. A tenant with a policy denial doesn't sink the whole call.
+- Fair queuing: one huge multi-tenant call from customer A shouldn't monopolize the scan for customer B's own workloads.
+- Row-pin resolution is server-side; the client doesn't need to enumerate tenant row-pin values.
+
+**Client-side complement (Trillo does today).** Even without this primitive, we can parallelize by sharding tenants across pods — 1-100 in pod 1, 101-200 in pod 2 — and issue one call per shard. That helps but each shard still fires N-per-shard scans against OliverDB. The primitive above collapses that to 1-per-shard.
+
+### 5.2  Sweep-friendly rollups — declarative per-sweep-cadence materialization  — **P2**
+
+**What.** Scheduled jobs on our side (e.g. `sweep_reliability_health` every 5 min, `discover_agent_inventory` every hour) fetch aggregates over rolling windows. Today each run re-scans the raw span table for its window. Instead:
+
+```
+POST /v1/rollup {
+  "name":       "reliability_5m",
+  "cube":       "by_operation",
+  "measures":   ["error_count", "duration_us_p95"],
+  "tiers_secs": [300, 3600, 86400],
+  "warm":       true
+}
+```
+
+The engine keeps these pre-computed across the tiered windows and refreshes incrementally at ingest, so the sweep query becomes:
+
+```sql
+SELECT service_name, error_count, duration_us_p95
+  FROM reliability_5m
+  WHERE window_start >= now() - '5 minutes'
+```
+
+**Why.**
+- Scheduled sweeps re-compute the SAME aggregate every N seconds/minutes. Precomputing at ingest amortizes the work over the ingest stream (which is already scanning every row) instead of the sweep loop (which scans on-demand).
+- Reduces OliverDB compute cost per scheduled job by a factor of the sweep cadence — a 5-minute sweep over a 24-hour window today re-scans the same 24h × 288 times/day; with precomputed rollups it's 288 O(1) reads.
+
+**Interaction with §5.1.** Multi-tenant + sweep-friendly rollups compose: one precomputed rollup per tenant, one multi-tenant read fetches all N.
+
+### 5.3  Sweep-cadence hints on the client  — **operational, not a product ask**
+
+**Not a request** — this is a client-side pattern we design against, mentioning here so it stays paired with §5.1 / §5.2 in the same review.
+
+- Batch related sweep queries via `/v1/query_batch` (already available) — one storage scan feeds a whole sweeper pass.
+- Shard tenants across pods (`1-100 → pod 1`, `101-200 → pod 2`, …) so sweep load parallelizes without any tenant starving.
+- Skip sweeps for tenants whose ingest rate over the window is zero — cheaper than running the query and getting an empty result.
+- When §5.2 lands: express every sweeper's query as a rollup read; ad-hoc SQL becomes exceptional, not routine.
+
+### 5.4  Denormalization at ingest — pointer to the existing plan
+
+See `oliverdb_refactor_plan.md §7` for the existing enumeration of ingestion-time derivation the OliverDB Rust-plugin model enables — cost, eval pass-rate, canary bucket, per-trace aggregates. That work is complementary to §5.1 and §5.2: precomputing at ingest reduces what each sweep query must compute; multi-tenant scan sharing reduces how many times each sweep query must run. Both compound.
+
+---
+
+## 6. Operational primitives
 
 ### 4.1  Batch write ack with per-row errors  — **P2**
 
@@ -283,7 +351,7 @@ Once §1.2 (semantic-convention pull-outs on ingest) lands on OliverDB, these at
 
 ---
 
-## 6. Priorities for the near-term roadmap
+## 7. Priorities for the near-term roadmap
 
 Ranked by unlock-per-effort for the Trillo AI Agent Observability POC:
 
@@ -300,11 +368,13 @@ Ranked by unlock-per-effort for the Trillo AI Agent Observability POC:
 | 9 | 2.3 Correlated subqueries | Unlocks trace-level and cohort analytics |
 | 10 | 1.4 `Text` + `text_match()` | Prompt/response FTS for incident response |
 | 11 | 3.1 Per-column retention | Compliance-driven configurability |
-| 12 | Everything else | P2 / operational polish |
+| 12 | 5.1 Multi-tenant scan sharing | Trillo AOS + RLS scale: N tenants, 1 scan per sweep |
+| 13 | 5.2 Sweep-friendly rollups | Amortizes scheduled-job scan cost across ingest |
+| 14 | Everything else | P2 / operational polish |
 
 ---
 
-## 7. Open questions to OliverDB
+## 8. Open questions to OliverDB
 
 1. **Update / delete semantics.** Is OliverDB append-only today? If so, what's the compaction / tombstone story for §3.2 (DELETE) and §1.3 (UPSERT)?
 2. **Plugin surface** (from the mapping-requirements doc). Confirm the per-record vs per-batch API for the Rust plugin; state/cache lifetime; ability to make cheap external lookups (say, an in-process LRU keyed by `agent_name`).
@@ -319,3 +389,4 @@ Ranked by unlock-per-effort for the Trillo AI Agent Observability POC:
 | Version | Date | Author | Notes |
 |---|---|---|---|
 | 0.1 | 2026-08-22 | Trillo (via Claude Code session) | Initial draft consolidating the 11-item wishlist surfaced during OliverDB scoping. |
+| 0.2 | 2026-08-29 | Trillo | Added §5 (multi-tenant scan sharing + sweep-cadence amortization), triggered by the observation during Slice F' dispatcher work that scheduled sweepers all run the same query per-tenant on a fixed cadence. Priorities table gains ranks 12 + 13. |
