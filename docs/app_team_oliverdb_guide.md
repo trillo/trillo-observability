@@ -7,6 +7,8 @@
 - `oliverdb_refactor_plan.md` — the reference examples in `TrilloAgentObservability`.
 - `oliverdb_onboarding.md` — the OliverDB team's tenant onboarding.
 
+> **Living reference — this doc is the source of truth for the analytics-DB integration as it evolves.** Update this file as OliverDB gaps close and toolkit surfaces change (schema additions, new signals, denormalization-at-ingest primitives, multi-tenant scan sharing, …). Once a batch of changes stabilizes, re-sync the developer-facing chapter in the public docs (`trillo-ai-aos-docs`) from this file. Edit the public chapter directly only for its own voice, structure, or cross-links — never for integration-content changes.
+
 This is a practical guide. Copy-paste-modify the examples. When something is unclear, look at the referenced function in `TrilloAgentObservability/.trillo/568/functions/` — those files are the working, shipped examples of every pattern here.
 
 ---
