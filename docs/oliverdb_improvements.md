@@ -267,6 +267,8 @@ The Trillo AI Agent Observability sweeper fleet runs the SAME queries against di
 
 ### 5.1  Multi-tenant scan sharing — one scan, N tenants  — **P1**
 
+> **Ingest side is expected to be handled server-side** — per the OliverDB team's plan, the ingestor middleware injects `tenantId` from the security token issued for ingestion. So multi-tenancy on the WRITE path is already covered; §5.1 is specifically about **cross-tenant READ scan sharing** where Trillo's sweeper fleet issues the same SQL against N tenant scopes on a schedule and would benefit from one storage scan instead of N.
+
 **What.** A single query issued against N tenant scopes at once, executed as ONE storage scan, returning per-tenant result rows. Two possible shapes for the request:
 
 - **Explicit tenant list.** `POST /v1/multi_query` with body `{tenants: ["acme","initech","umbrella"], sql: "SELECT service_name, count(*) FROM t GROUP BY service_name"}`. Response includes rows tagged by tenant.
