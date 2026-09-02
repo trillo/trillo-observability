@@ -132,7 +132,42 @@ Directly validates the actuation posture.
 
 ---
 
-## 9. Value & economics (close)
+## 9. Customization & fit — "nothing off-the-shelf fits our fleet"
+
+Neoclouds differentiate by being specialized — bespoke hardware (NVL72, mixed fabrics), custom schedulers,
+custom SLAs and billing. Their observability needs mirror that, and rigid tools can't keep up. This is where
+Trillo's **model-driven customization** is a real wedge — but in a *discovery* conversation it's a **probe
+first, a pitch last**. Surface the pain before you name the capability.
+
+**Probe the pain (ask these):**
+- What's **unique about your fleet** that off-the-shelf tools don't handle — custom hardware, scheduler,
+  metrics, failure signatures, SLAs?
+- What did you have to **build yourself** because Datadog / Grafana / DCGM couldn't — and what does it cost
+  you to *maintain*?
+- Are there **custom metrics, detectors, or correlations** you compute (or wish you could) that are specific
+  to how you run?
+- How custom are your **billing / SLA / chargeback** rules?
+
+**Then — only after a fit-pain surfaces — articulate the capability, outcome-first:**
+- *Outcome:* "The tool bends to your fleet, not the other way — add your own metrics, detectors,
+  correlations, dashboards, and billing rules as **functions**, hot-deployed, no fork."
+- *Proof (the HOW, in service of the outcome):* "Those functions run **distributed on pods / micro-VMs**, so
+  your custom logic executes safely and **at fleet scale** — you're not standing up a data pipeline to do it."
+- *Velocity (the discovery-meeting payoff):* "It also means we can **tailor the POC to your fleet in days** —
+  your metrics, your scheduler, your quirks — not wait a product quarter."
+
+**Why it's a clean wedge:** it beats **build-your-own** (no maintenance burden) *and* **buy-rigid**
+(Datadog/Grafana bend to a fixed model; we bend to yours).
+
+**Decides:** whether customization is a headline or a footnote for this buyer; which custom functions the POC
+should showcase; how hard to lean on the model-driven / AOS story.
+
+**Watch-out:** don't open with architecture. Lead with their pain; deploy "pods/micro-VMs" only as *proof it
+scales and stays isolated*, never as the headline. Jargon before pain turns discovery into a demo.
+
+---
+
+## 10. Value & economics (close)
 
 - If we solved the #1 pain you named, what's that **worth** — downtime avoided, margin recovered, people-time
   saved?
@@ -150,18 +185,21 @@ Directly validates the actuation posture.
 3. How they attribute a bad-GPU incident to a job/tenant **today**, and how long it takes.
 4. The utilization number they trust (and whether they believe it).
 5. Slurm vs. K8s — what job metadata they actually expose.
-6. Their honest openness to **automated remediation**, and the guardrails they'd need.
-7. Data-residency / BYOC requirement — hard or soft?
-8. One verbatim quote we could put in front of the next prospect.
+6. What they had to **build themselves** because no tool fit — and what it costs to maintain.
+7. Their honest openness to **automated remediation**, and the guardrails they'd need.
+8. Data-residency / BYOC requirement — hard or soft?
+9. One verbatim quote we could put in front of the next prospect.
 
 ---
 
-## Two hooks to lead with (if they stall)
+## Three hooks to lead with (if they stall)
 
-If the conversation needs a spark, these are our sharpest, most-differentiated pains — both provider-native,
-both in V1:
+If the conversation needs a spark, these are our sharpest, most-differentiated angles — all V1:
 
 - **Silent Data Corruption** — "your loss goes NaN three hours in and *nothing* in your infra logged a
   thing. We flag the mathematically-rogue GPU."
 - **The utilization illusion** — "nvidia-smi says 90% and half your fleet is actually idle. We show real
   MFU, per tenant — that's margin you're leaving on the floor."
+- **It bends to your fleet** — "whatever's bespoke about your setup — custom metrics, detectors, billing —
+  you add it as a function that runs at fleet scale, hot-deployed. And we'll shape the POC to *your* fleet in
+  days." *(Deploy only after a fit-pain surfaces — see §9.)*
