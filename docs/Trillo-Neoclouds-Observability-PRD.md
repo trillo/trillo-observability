@@ -9,10 +9,10 @@ root-cause matrix (25 failure modes tagged by telemetry source) is the empirical
 provider** with reliability + blast radius + real utilization + **job correlation**, on a data model built
 to extend to their **tenants** next, and to the **Private Cloud** edition with no fork.
 
-> **Next artifact:** after this PRD is agreed and the **Cursor / Aurora** pain-point conversations land, the
-> detailed spec goes into a `...POC_Requirements_Final`-style document (functional + data + UI screens +
-> acceptance) plus a **telemetry-simulator requirements** doc (V1 demos on synthetic data). This PRD is the
-> scope those inherit.
+> **Status update (2026-09-03):** V1 scope **agreed with the design-partner team**. The detailed build spec
+> is now in **`Trillo-Neoclouds-Observability-POC-Requirements.md`** (functional + data + UI screens +
+> acceptance + synthetic-data simulator). Telemetry follows the wide-column **OTLP telemetry table +
+> `executionId` correlation** pattern (reused from Agent Observability), **Postgres-first, then OliverDB**.
 
 > **V2 in one line (locked):** V2 = **advanced analytics (prediction) · actuation · NeoCloud-customer
 > (tenant) views · billing**. Everything else — including **job correlation** — is in V1's sights.
@@ -144,6 +144,12 @@ One entity graph on Trillo AOS (multi-tenancy + RBAC/RLS out of the box), teleme
   - **`Job`** (K8s + Slurm), **`Allocation`** (job → node/GPU). Powers **blast radius** and is the seam to
     the V2 tenant edition.
 - **Signals:** detector outputs as `Finding` / `Alert` linked to the graph node they concern, tenant-scoped.
+- **Telemetry storage:** infra signals (DCGM, node, kernel, switch, scheduler) land via **OTLP** in a
+  **single wide-column telemetry table** (span/log/event/metric; signal-specific columns nullable) with
+  flattened fleet semconv columns (gpu / node / rack / az / region, job, tenant) — reusing the Agent
+  Observability `OtlpTelemetry` shape. A first-class **`executionId` / `jobRunId` correlation column** joins
+  telemetry across exporters (which don't share a trace id) to a job/entity, mirroring how `executionId`
+  handles non-compliant / colliding trace ids. **Postgres-first, OliverDB behind a config switch** (§8).
 - **Discovery + reconcile:** telemetry-first auto-discovery (DCGM/node/scheduler) + a background
   **reconcile sweeper** against authoritative sources (K8s + Slurm APIs; Redfish/CMDB for physical). Fabric
   authoritative source (OpenSM/ibnetdiscover) is V2; V1 fabric = inventory from config/labels + light
