@@ -1,6 +1,6 @@
 # Ingest-time Attribute Normalization — Note for the OliverDB Team
 
-**Document Version:** 0.1
+**Document Version:** 0.3
 **Audience:** OliverDB engineering team.
 **From:** Trillo platform team.
 **Related:**
@@ -126,5 +126,50 @@ If it's longer than that, we're OK — the dual-write path stays working indefin
 5. Is there a plugin/rule-config test harness we could hit before deploying rules to prod tenants?
 
 Happy to jump on a call to walk through the 15-attr list, any of the technical trade-offs, or the plugin design shape.
+
+## 9. `executionId` — first-class collision-resistant trace identifier
+
+**The purpose of `executionId` is to avoid `traceId` collisions across services / producers within a tenant, and to handle cases where the `traceId` emitted by a customer agent is non-OTel-compliant** (short id, hard-coded value, framework wrapper bug). It is a first-class typed column on all four OliverDB telemetry schemas (`OtlpSpan`, `OtlpLog`, `OtlpEvent`, `OtlpTelemetry`; also present on `OtlpMetric` for Trillo-emitted metric points). Trillo Observability's readers filter by this column for trace-level grouping.
+
+### 9.1  Why we need it — the collision picture
+
+We monitor ~20K customer agents built on mixed frameworks (ADK / LangChain / LangGraph / CrewAI). Within a single tenant:
+
+- **If all producers use OTel-spec 128-bit random `traceId`:** collision probability is negligible (birthday bound ~2^64 traces before 50% collision — astronomically more than the ~10^11 traces/year at our scale).
+- **If any producer is non-compliant:** collision is realistic. Older instrumentations use 64-bit ids (birthday bound ~2^32 = 4B — collision realistic at scale). Producers with hard-coded test ids, template-value bugs, or misconfigured propagation reuse the same `traceId` across unrelated requests. We can't assume producer discipline for 20K customer-authored agents.
+- **Cross-tenant:** not a concern; OliverDB partitions per tenant.
+
+We could tell every customer "use OTel-spec 128-bit random ids" — but for a monitoring product that ingests third-party telemetry, we need to be defensive. `executionId` is the defense: a deterministically-derived, always-unique-within-tenant trace identifier that Trillo consumers query on.
+
+### 9.2  Derivation rules the plugin implements
+
+Two rules per row, in this order:
+
+**Rule A — Trillo `traceId` back-fill.** If `traceId` is null AND `attrs.trillo.execution_id` is set → copy `attrs.trillo.execution_id` into `traceId`.
+
+Why: Trillo AOS's platform code (Java + Python: `trillo-aos`, `tcs-service`, `aos-py-execution`, `tcs-metadata aos_toolkit`) has an internal `executionId` concept that predates our OTel alignment. It threads through Redis pub/sub, task events, result envelopes, function/agent invocation paths. Rather than refactor all of that, Trillo producers emit `attrs.trillo.execution_id` and the plugin fills `traceId` for them. Non-destructive — if `traceId` is already set, do NOT overwrite it; the producer's explicit trace id always wins. Trillo-scoped; a no-op on customer telemetry.
+
+**Rule B — `executionId` derivation.** Per row:
+1. If `attrs.trillo.execution_id` is set → promote it verbatim into the `executionId` column.
+2. Else if `traceId` is set → `executionId = UUIDv5(trillo_execution_id_namespace, service.namespace || traceId)`.
+3. Else → `executionId = null`.
+
+The namespace UUID `trillo_execution_id_namespace` is a fixed value we'll mint and ship in your plugin config (e.g. `promote_semconv.trillo_execution_id_namespace = "<uuid>"`). RFC 4122 UUIDv5 (SHA-1-based) gives us a deterministic 128-bit output, formatted as a UUID string. Same trace → same `executionId` regardless of arrival order. Different producers with colliding `traceId` → different `executionId` (namespace differs).
+
+Why UUIDv5 (RFC-standard) instead of a raw hash: same 36-char shape as Trillo's existing `UUID.randomUUID()` executionIds — consumers see one column type across both origins; and RFC 4122 is the recognized mechanism for deterministic UUID derivation, which makes the design defensible to OTel purists.
+
+### 9.3  Ordering
+
+Per record on the ingest path:
+1. Rule A (`traceId` back-fill from `attrs.trillo.execution_id`).
+2. The 15-attr semconv promotion in §1 — the `attrs.trillo.execution_id` promotion into `executionId` can piggyback on this if you're implementing it as a general "promote key → column" pass.
+3. Rule B (`executionId` derivation for rows where the promotion left `executionId` still null).
+
+### 9.4  What we're asking of you
+
+Adding to the §8 questions:
+
+- Can UUIDv5 be computed in the plugin path (Rust `uuid` crate has it), or is a raw hash easier to hook in? We prefer UUIDv5 for the shape-consistency + RFC-standard reasons above, but a raw truncated hash (SHA-256[:16]) with a Trillo-namespace prefix works too.
+- Are the two rules — one-shot promotion and one-shot derivation-from-two-columns — composable in the plugin surface, or do we need a fully-custom Rust plugin for Rule B?
 
 — Trillo platform team
