@@ -245,19 +245,23 @@ span("llm", "client", "llm.%s.generate" % model, {
 
 Once §1.2 (semantic-convention pull-outs on ingest) lands on OliverDB, these attrs automatically promote to the token columns and become summable — the emitter code doesn't need to know about the column shape.
 
-### 4.4  Trillo-specific `execution_id` field  — producer discipline
+### 4.4  Trillo `execution_id` — promoted to first-class `executionId` column on ingest
 
-**What.** The emitter today writes `executionId` as a top-level field on every OtlpSpan/OtlpLog/OtlpEvent row it produces. OliverDB has no frozen column named that; it belongs in `attrs.trillo.execution_id` (per OTel semantic-convention custom-attribute conventions).
+**What.** The emitter writes `attrs.trillo.execution_id` on every OtlpSpan/OtlpLog/OtlpEvent (and, for Trillo-emitted metric points, OtlpMetric) row it produces. The OliverDB ingest plugin promotes it into the first-class `executionId` column on the target schema. For rows without `attrs.trillo.execution_id` (customer telemetry from ADK / LangChain / LangGraph / CrewAI), the plugin instead derives `executionId = UUIDv5(trillo_execution_id_namespace, service.namespace || traceId)` when `traceId` is present.
 
-**Not a schema change.** Just: the pod-side helper that formats OTLP → OliverDB puts the `executionId` in `attrs.trillo.execution_id` and it becomes filterable via `attrs.trillo.execution_id = '…'` — indexed like every other attrs key.
+**Purpose of `executionId`.** Avoid `traceId` collisions across services / producers within a tenant, and handle cases where the `traceId` emitted by a customer agent is non-OTel-compliant (short id, hard-coded value, framework wrapper bug). See `oliverdb_ingest_normalization_note.md` §9 for the full rule set + collision-picture rationale.
 
-### 4.5  Optional: a first-class `execution_id` / `session_id` column  — **P2**
+**Plugin scope, not schema drift.** Producers keep emitting `attrs.trillo.execution_id` as they do today; the plugin's promotion + derivation land the value in the typed `executionId` column so consumers filter by `executionId` directly (indexed) rather than by `attrs.trillo.execution_id = '…'` (attrs bitmap).
 
-**What.** If real-agent producers uniformly emit a session or execution correlation id, OliverDB could promote it to a frozen column with a sparse+bloom index (like `trace_id`).
+### 4.5  Optional: a first-class `session_id` column  — **P2**
 
-**Why.** "All spans for session S" is the second-most-common needle query after `trace_id` lookup. Right now it's `WHERE attrs.session.id = 'S'` — indexed via the attrs bitmap, but a frozen column would be faster and would unlock a session-scoped rollup.
+**What.** If real-agent producers uniformly emit `attrs.session.id` (OTel semconv v1.30+) or a per-framework equivalent (`adk.session.id`, `langgraph.thread_id`, `langsmith.session_id`, …), OliverDB could promote it to a frozen column with a sparse+bloom index like `trace_id`.
 
-**Cost.** New column = one-time table addition. Producer discipline required for it to be populated.
+**Why.** "All spans for session S" is the second-most-common needle query after trace lookup. Right now it's `WHERE attrs.session.id = 'S'` — indexed via the attrs bitmap, but a frozen column would be faster and would unlock a session-scoped rollup.
+
+**Cost.** New column = one-time table addition. Producer discipline required for it to be populated. Deferred until customer producers show consistent session-id emission — otherwise most rows would land null.
+
+**Note:** the `executionId` half of this originally-P2 item is no longer optional — it shipped as a first-class column on all OliverDB Otlp* schemas, populated by the ingest plugin per §4.4.
 
 ---
 

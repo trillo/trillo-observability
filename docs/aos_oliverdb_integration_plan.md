@@ -338,7 +338,7 @@ Shrunk from the original scope after §4.1's reality check — no in-process HTT
 - Add `telemetrySink` param (default `postgres`).
 - Replace direct `ctx.data.create("OtlpSpan"/"OtlpLog"/"OtlpEvent", …)` with `ctx.telemetry.emit_*`.
 - Add `gen_ai.usage.input_tokens` / `gen_ai.usage.output_tokens` and `gen_ai.system` / `gen_ai.request.model` on the `llm` span (per `oliverdb_improvements.md §4.3`).
-- Add `trillo.execution_id` in `attrs`, remove the top-level `executionId` field (per `§4.4`).
+- Add `attrs.trillo.execution_id` (the OliverDB ingest plugin promotes it into the first-class `executionId` column — see `oliverdb_ingest_normalization_note.md` §9).
 - Update `seed_demo_scenarios` and `process_execution_telemetry` similarly.
 - **Deliverable:** the same simulator can populate Postgres or OliverDB from one invocation.
 
