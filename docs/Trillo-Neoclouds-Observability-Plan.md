@@ -150,6 +150,12 @@ New functions to generate (with slice): `build_physical_topology` (inventory →
 `resolve_blast_radius` to be an **LCA over `AllocationTopoMember`** (shared fan-out + as-of-T, 4); extend
 `generate_synthetic_fleet` for tenancy + invariants + scenarios (1).
 
+**Authoring-heavy specs** for `build_physical_topology`, `resolve_logical_topology`, and the **LCA**
+`resolve_blast_radius` are in `Trillo-Neoclouds-Observability-Function-Specs.md`. **Slice-0 rename impact:**
+16 existing functions reference the old `tenantProfileId` — **regenerate the function + UI layer via the
+plugin** from the updated entities + that spec (mapping: tenant-scoped classes → `tenantId`, operator-global
+→ `refTenantId`; `TenantProfile` joined by `tenantId`), rather than hand-patching.
+
 Agents: the **SRE agent** (scoped Q&A, Slice 6) grounded via the read functions as tools; a background
 **analysis agent** (optional) that attaches `AiAnalysis` to findings.
 
