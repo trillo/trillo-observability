@@ -21,8 +21,12 @@ The POC is demonstrated on **synthetic but realistic fleet telemetry** and is bu
 (model-driven, multi-tenant, RBAC/RLS, hot-deployable). It targets the **operator** persona in V1, on a data
 model built to extend to the provider's **tenants** (V2) and to the **Private Cloud** edition with no fork.
 
-Out of scope for V1 (V2 roadmap): predictive analytics, actuation (drain/cordon/quarantine), tenant-facing
-views, and billing. V1 is **read-mostly**: detect → attribute blast radius → recommend → alert.
+**Demo-first scope (2026-09-05):** because the demo is the door-opener, the **demo build scope is unified** —
+it shows the full vision on synthetic data, including former-V2 capabilities (prediction, tenant views,
+billing / chargeback, deep fabric, and **actuation-as-preview**). The former V1/V2 split is retained as a
+**deployment-readiness tier** (day-one provider-native · needs a connector · needs maturity), *not* a build
+gate — see the PRD and the plan doc. On real fleets, remediation stays **recommend-only** until each
+trust-ladder rung is POC-validated; the demo shows actuation as **dry-run preview** only.
 
 ---
 
@@ -47,10 +51,13 @@ injected failures (SDC, Xid, thermal throttle, NCCL stall, fragmentation, storag
 synthetic, the UI may assume the **complete data model** — but an internal **live-vs-synthetic map** keeps us
 honest about what V1 ingests live.
 
-### 2.5 Two Personas, One Graph
-V1 ships the **operator** UI (fleet health, blast radius, utilization, capacity). The graph is
-**tenant-typed and RLS-scoped from day one**, so the V2 tenant view ("is my job healthy?") is the same graph
-rendered for a tenant's own slice — no rewrite.
+### 2.5 Two Personas, One Graph (asymmetric tenancy)
+The operator is **tenant-0** and sees the whole fleet. The neocloud's customers are **AOS tenants**, but
+tenancy is *asymmetric*: only the **workload/usage classes** (`Job`, `Allocation`, `TenantUsage`) carry
+`tenantId` (RLS); the **shared fleet** (Region…GPU, fabric, telemetry, rollups) is **operator-global** (no
+`tenantId`). A tenant's fleet view is **derived by joining through `Allocation`**, not by owning fleet rows.
+The app is flipped to **`multiTenant` now** so the demo DB matches the final shape (see the plan doc). In the
+demo, the tenant perspective is shown via **"view as tenant"** impersonation, with real RLS behind it.
 
 ### 2.6 Honest V1 Scope
 V1 **recommends**, it does not act. No writes into the provider's control plane. Actuation is a V2 opt-in,
@@ -74,10 +81,13 @@ firmware/driver versions, `status` (healthy / degraded / drained / quarantined),
 A single accelerator. Example dimensions: `gpuUuid`, `gpuIndex`, node, model (H100/GB200), HBM capacity,
 NVLink domain, PCIe root, `health` (ok / degraded / failed), ECC/row-remap state, `status`.
 
-### 3.4 Fabric
+### 3.4 Fabric & wiring
 The scale-out network as inventory + light telemetry. Entities: `FabricSwitch` (leaf / spine / core),
-`FabricLink` (endpoints, type IB / RoCE / NVLink, rail). Deep per-link analytics are V2; V1 places jobs and
-blast radius on the fabric graph.
+`FabricLink` (endpoints, type IB / RoCE / NVLink, rail), and **`NodeToLink`** — the **many-to-many** join
+letting a node fan out to multiple links, with a **`linkType`** discriminator (`compute_fabric` / `nvlink` /
+`storage_fabric` / `management` / `tenant_network`), `rail`, and a validity interval. Shared blast radius
+traverses **switch → `FabricLink` → `NodeToLink` → nodes → GPUs**. Deep per-link analytics are V2; V1 places
+jobs and blast radius on the graph.
 
 ### 3.5 Tenant
 The neocloud's customer. **`Tenant` is the AOS system class** (`tenantId` → RLS); we extend it with
@@ -99,6 +109,18 @@ Infra telemetry arrives from multiple exporters (DCGM, node, switch, scheduler) 
 id**. A first-class **`executionId`** (a.k.a. `jobRunId`) column ties all telemetry for one job-run together
 across sources — the same pattern Agent Observability uses to survive non-compliant / colliding trace ids.
 See §11.2.2.
+
+### 3.9 Topology vs Allocation — two time-aware graphs
+Two graphs change at very different rates, so they are modeled differently (detail in the plan doc):
+- **Physical topology** (`Node`, `FabricLink`, `NodeToLink`, `Gpu`, NVLink domain, switch, rack) — the
+  *wiring*, near-static; the edges that can change carry `validFrom` / `validTo`. "Topology as of T" is a
+  **query**, not a stored snapshot (no `Topology`-snapshot class).
+- **Allocation overlay** (`Allocation`, time-windowed) — the *workload*, fast-changing; the management plane
+  is the **trusted source**. "Allocation as of T" is a query over active intervals.
+The two compose into the full graph at time T. **Shared components** (switch, rack, cooling / power domain,
+storage) serve **many tenants at once**, so blast radius fans out through topology, not just direct GPU
+bindings. A cheap by-product of trusting the management plane: telemetry on a GPU with **no active
+allocation** surfaces as an inventory-gap / untenanted finding.
 
 ---
 
@@ -188,8 +210,13 @@ affected, and how confident we are.
 ## 6.2 POC Requirements
 The POC shall:
 - Resolve **device → allocation → job → tenant** from the scheduler (K8s + Slurm) join.
-- Show directly-impacted (allocated to the failing device) and potentially-impacted (same NVLink domain /
-  fabric path / rack failure domain) jobs and tenants.
+- Resolve blast radius **at the time of the event (`as-of-T`)** from the time-windowed `Allocation` ledger —
+  not just current bindings.
+- For **shared components** (switch / rack / cooling / power / storage), **fan out through topology**
+  (`NodeToLink`, rack membership, NVLink domain) to every tenant served — not only the directly-bound GPU.
+- Classify each impacted job as **`direct` / `degraded` / `potential`** by failure-domain type.
+- Provide an **Allocation Timeline** view ("who held what, when") as the operator's point-in-time lens over
+  the fleet.
 - Quantify blast radius (GPUs, jobs, tenants, GPU-hours at risk).
 - Work for **both** K8s inference and Slurm training workloads.
 

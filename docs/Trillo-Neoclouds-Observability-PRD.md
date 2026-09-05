@@ -14,8 +14,16 @@ to extend to their **tenants** next, and to the **Private Cloud** edition with n
 > acceptance + synthetic-data simulator). Telemetry follows the wide-column **OTLP telemetry table +
 > `executionId` correlation** pattern (reused from Agent Observability), **Postgres-first, then OliverDB**.
 
-> **V2 in one line (locked):** V2 = **advanced analytics (prediction) · actuation · NeoCloud-customer
-> (tenant) views · billing**. Everything else — including **job correlation** — is in V1's sights.
+> **Demo-first reframe (2026-09-05):** because the demo is the door-opener and runs on **synthetic data**,
+> the **demo build scope is unified** — it shows the full vision (former V1 *and* V2 capabilities: topology,
+> failure + blast radius, real utilization, scoped chat, **prediction, tenant views, billing / chargeback,
+> deep fabric, and actuation-as-preview**). The former **V1/V2 split is retained below as a
+> *deployment-readiness tier*** — *Day-one* (provider-native, deployable with no tenant cooperation) ·
+> *Connector / maturity* (needs a real connector — framework, deep-fabric, storage — or product maturity
+> like prediction / billing / actuation) — **not a release gate**. It keeps us honest with real prospects
+> about what runs day one vs. what a connector or POC unlocks, and doubles as a roadmap. **Actuation in the
+> demo = recommend + dry-run preview only** (trust-ladder rung 2), never closed-loop. Keep a **cut line** —
+> money-shot scenarios first so the 3–4-week timeline holds.
 
 ---
 
@@ -72,9 +80,13 @@ mode + emphasis + deployment — a config, not a schema change.
 
 ---
 
-## 3. V1 scope — the six customer priorities, mapped
+## 3. Scope — the six customer priorities (demo builds all; V1/V2 = readiness tiers)
 
-| # | Priority | V1 | V2 |
+> **Demo vs. real-data readiness.** For the **demo (synthetic data), all six are built fully.** The two
+> right-hand columns are the **deployment-readiness tier** for the real rollout — **Day-one** (provider-native)
+> vs. **Connector / maturity** (needs a real connector or product maturity) — **not a build-phase gate**.
+
+| # | Priority | Day-one (provider-native) | Connector / maturity — *all shown in the demo* |
 |---|---|---|---|
 | 1 | **Topology** | Compute inventory (GPU/node) auto-discovered; physical hierarchy (rack/AZ/region); NVLink domains; **fabric switches + links** in the graph (light ingestion) | Deep fabric analytics (link-level IB/RoCE, bisection BW, oversubscription, rail contention) |
 | 2 | **Failure signals** | Full provider-native detector set (§4) — hardware degradation, XID, thermal/power throttle, NVSwitch/Fabric-Manager, starvation, NUMA, clock drift, scheduler pathologies | Framework-confirmed SDC, NCCL patient-zero, deep-fabric packet drops |
@@ -141,8 +153,16 @@ One entity graph on Trillo AOS (multi-tenancy + RBAC/RLS out of the box), teleme
   - **`Tenant`** = AOS **system class**; `tenantId` → **RLS**. *Not* redefined here.
   - **`TenantProfile`** = our extension: tenant **type** (external-customer | internal-team), **billing
     mode**, SLA, contacts.
-  - **`Job`** (K8s + Slurm), **`Allocation`** (job → node/GPU). Powers **blast radius** and is the seam to
-    the V2 tenant edition.
+  - **`Job`** (K8s + Slurm), **`Allocation`** (job → node/GPU, **time-windowed**). Powers **blast radius**
+    and is the seam to the tenant edition.
+  - **Asymmetric tenancy (app flipped to `multiTenant` now).** Operator = **tenant-0** (sees all); only
+    `Job` / `Allocation` / `TenantUsage` carry `tenantId` (RLS). The **shared fleet + telemetry are
+    operator-global** (no `tenantId`); a tenant's fleet view is **derived via `Allocation`**. Shared
+    components (switch / rack / storage) serve many tenants, so blast radius **fans out through topology**.
+  - **Topology vs Allocation — two time-aware graphs.** Physical topology is versioned by **edge validity**
+    (`NodeToLink` M:N with a typed `linkType`); allocation by **time intervals**. "As-of-T" is a *query*,
+    not a stored snapshot. Detailed model + ordered build slices live in
+    `Trillo-Neoclouds-Observability-Plan.md`.
 - **Signals:** detector outputs as `Finding` / `Alert` linked to the graph node they concern, tenant-scoped.
 - **Telemetry storage:** infra signals (DCGM, node, kernel, switch, scheduler) land via **OTLP** in a
   **single wide-column telemetry table** (span/log/event/metric; signal-specific columns nullable) with
@@ -186,10 +206,13 @@ wired, before building the rest.
 
 ---
 
-## 7. Alerting & remediation posture (V1 = read-mostly)
+## 7. Alerting & remediation posture (real = read-mostly; demo = recommend + preview)
 
 - **Alerting:** de-duplicated, **blast-radius** alerts. Channels **same as Trillo Agent Observability**
   (Slack / Teams / PagerDuty / webhook). Rules configurable (SLO, thresholds, severity).
+- **Demo shows actuation as *preview*.** The demo demonstrates trust-ladder **rung 2** — one-click drain /
+  cordon with a **dry-run preview + blast-radius check**, reversible, never executed for real. Real
+  deployments stay **recommend-only** until each rung is POC-validated per operator.
 - **Remediation — V1 recommends, does not act.** V1 = **detect → attribute blast radius → recommend →
   alert.** No writes into the provider's control plane. **Actuation (drain / cordon / quarantine / burn-in)
   is V2**, delivered as an opt-in, POC-validated **trust ladder** (§9). Rationale: V1 earns trust in the
@@ -215,9 +238,11 @@ wired, before building the rest.
 
 ---
 
-## 9. V2 roadmap — four headline buckets
+## 9. Deployment readiness tiers — beyond day-one (all shown in the demo)
 
-**V2 = advanced analytics (prediction) · actuation · NeoCloud-customer (tenant) views · billing.**
+**The demo shows these on synthetic data. For a *real* rollout they sit past the provider-native day-one
+tier — grouped as: advanced analytics (prediction) · actuation · NeoCloud-customer (tenant) views ·
+billing.** Each needs a connector or product maturity on real fleets; none block the demo.
 
 1. **Advanced analytics (prediction).** Anomaly & RUL models on V1-collected history; framework-confirmed
    SDC; NCCL patient-zero; deep-fabric analytics (link-level IB/RoCE, PFC/RoCE drops, bisection BW,
