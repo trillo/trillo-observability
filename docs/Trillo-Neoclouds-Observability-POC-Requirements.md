@@ -53,9 +53,11 @@ honest about what V1 ingests live.
 
 ### 2.5 Two Personas, One Graph (asymmetric tenancy)
 The operator is **tenant-0** and sees the whole fleet. The neocloud's customers are **AOS tenants**, but
-tenancy is *asymmetric*: only the **workload/usage classes** (`Job`, `Allocation`, `TenantUsage`) carry
-`tenantId` (RLS); the **shared fleet** (Region…GPU, fabric, telemetry, rollups) is **operator-global** (no
-`tenantId`). A tenant's fleet view is **derived by joining through `Allocation`**, not by owning fleet rows.
+tenancy is *asymmetric*: the **tenant-scoped classes** — `TenantProfile` (the 1:1 sidecar of `Tenant`, keyed
+by `tenantId`), `Job`, `Allocation`, `TenantUsage` — carry `tenantId` (RLS); the **shared fleet** (Region…GPU,
+fabric, telemetry, rollups) is **operator-global** (no `tenantId`). **Classes reference `tenantId`, never a
+`tenantProfileId`.** A tenant's fleet view is **derived by joining through `Allocation`**, not by owning fleet
+rows.
 The app is flipped to **`multiTenant` now** so the demo DB matches the final shape (see the plan doc). In the
 demo, the tenant perspective is shown via **"view as tenant"** impersonation, with real RLS behind it.
 
@@ -89,11 +91,14 @@ letting a node fan out to multiple links, with a **`linkType`** discriminator (`
 traverses **switch → `FabricLink` → `NodeToLink` → nodes → GPUs**. Deep per-link analytics are V2; V1 places
 jobs and blast radius on the graph.
 
-### 3.5 Tenant
-The neocloud's customer. **`Tenant` is the AOS system class** (`tenantId` → RLS); we extend it with
-**`TenantProfile`** (type `external-customer | internal-team`, billing mode, SLA terms, contacts). This one
-abstraction is the keystone for persona (operator/tenant), edition (NeoCloud/Private-Cloud), and blast
-radius.
+### 3.5 Tenant & TenantProfile (1:1 sidecar)
+The neocloud's customer **is the AOS framework `Tenant`** (`tenantId` → RLS). **`TenantProfile` is a 1:1
+*sidecar* of `Tenant`, keyed by `tenantId`** — it holds only the profile attributes the framework class
+doesn't (type `external-customer | internal-team`, billing mode, SLA terms, contacts, `gpuHourlyRate`).
+**Application classes carry `tenantId`, never a `tenantProfileId`;** profile attributes are resolved by
+joining `TenantProfile` on `tenantId` when needed — the same sidecar pattern used to extend the `User` class
+in another app. This is the keystone for persona (operator/tenant), edition (NeoCloud/Private-Cloud), and
+blast radius.
 
 ### 3.6 Job & Allocation
 `Job` = a scheduled workload from **K8s (inference)** or **Slurm (training)** — `jobId`, tenant, scheduler,

@@ -18,10 +18,13 @@ with the **Trillo AOS Claude Code plugin**. App: `NeoCloudObservability` (`.tril
   real connectors would produce — so the swap is later a connector change, not a remodel.
 
 ## 2. Locked design decisions
-1. **Asymmetric tenancy.** Operator = **tenant-0** (sees all). Only **`Job` / `Allocation` / `TenantUsage`**
-   carry `tenantId` (RLS). The **shared fleet + telemetry + rollups + findings-about-shared-infra are
-   operator-global** (no `tenantId`). AOS applies tenancy **per-class by presence of `tenantId`**, so this is
-   just "which classes get the column." A tenant's fleet view is **derived by joining through `Allocation`**.
+1. **Asymmetric tenancy.** Operator = **tenant-0** (sees all). **Tenant-scoped classes** — `TenantProfile`
+   (the **1:1 sidecar** of the framework `Tenant`, **keyed by `tenantId`**), `Job`, `Allocation`,
+   `TenantUsage` — carry `tenantId` (RLS). The **shared fleet + telemetry + rollups + findings-about-shared-
+   infra are operator-global** (no `tenantId`). AOS applies tenancy **per-class by presence of `tenantId`**.
+   **Application classes carry `tenantId`, never a `tenantProfileId`;** profile attributes come from a
+   `TenantProfile` join on `tenantId` (the sidecar pattern used to extend `User` elsewhere). A tenant's fleet
+   view is **derived by joining through `Allocation`**.
 2. **Flip `AppConfig.multiTenant` now** — it's immutable after first tenant registration, so convert before
    seeding demo data (operator = tenant-0; customers = tenants 1..N).
 3. **Demo tenant perspective = "view as tenant" impersonation** from the operator console, with real RLS
@@ -58,7 +61,10 @@ with the **Trillo AOS Claude Code plugin**. App: `NeoCloudObservability` (`.tril
 | `RemediationAction` | actuation **preview** record (dry-run: action, target, blast-radius check, status) | no |
 
 **Modify**
-- **Add `tenantId`** to `Job`, `Allocation`, `TenantUsage` (RLS). Keep `tenantProfileId` as the FK/denorm join.
+- **Replace `tenantProfileId` with `tenantId`** across all classes (`Job`, `Allocation`, `TenantUsage`, the
+  `OtlpTelemetry` denormalized hint, `SimulationScenario.targetTenantId`). `Job` / `Allocation` /
+  `TenantUsage` get `tenantId` as the RLS key. **`TenantProfile` becomes the 1:1 sidecar keyed by `tenantId`**
+  (repurpose its `aosTenantId` → a required, unique `tenantId`); no `tenantProfileId` anywhere.
 - **`NodeToLink`** carries edge validity; add `validFrom`/`validTo` to other structural edges that can change.
 - **Do not** add `Node.fabricSwitchId` (superseded by `NodeToLink`).
 - **`OtlpTelemetry`**: add `storage` to the `source` enum + a `storageSystemId` flattened column (it already
