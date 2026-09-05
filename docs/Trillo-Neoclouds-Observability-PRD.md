@@ -142,7 +142,7 @@ agents.**
 
 ---
 
-## 5. Data model — topology graph, tenant-typed, RLS
+## 5. Data model — components & relationships, tenant-typed, RLS
 
 One entity graph on Trillo AOS (multi-tenancy + RBAC/RLS out of the box), telemetry via Postgres→OliverDB.
 
@@ -160,7 +160,7 @@ One entity graph on Trillo AOS (multi-tenancy + RBAC/RLS out of the box), teleme
     operator-global** (no `tenantId`); a tenant's fleet view is **derived via `Allocation`**. Shared
     components (switch / rack / storage) serve many tenants, so blast radius **fans out through topology**.
   - **Topology vs Allocation — two time-aware graphs.** Physical topology is versioned by **edge validity**
-    (the `TopoNode` / `TopoEdge` graph, edges typed by `edgeType`); allocation by **time intervals**. "As-of-T" is a *query*,
+    (`ComponentRelation` — typed relationships between components); allocation by **time intervals**. "As-of-T" is a *query*,
     not a stored snapshot. Detailed model + ordered build slices live in
     `Trillo-Neoclouds-Observability-Plan.md`.
 - **Signals:** detector outputs as `Finding` / `Alert` linked to the graph node they concern, tenant-scoped.

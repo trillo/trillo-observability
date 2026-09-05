@@ -34,15 +34,15 @@ with the **Trillo AOS Claude Code plugin**. App: `NeoCloudObservability` (`.tril
      `Topology`-snapshot class. "Topology as of T" = query.
    - *Allocation* (fast-changing): time-interval rows. "Allocation as of T" = query. Management plane is the
      **trusted source**.
-5. **Topology is a generic graph.** Typed entities (`Node`, `Gpu`, `FabricSwitch`, `StorageSystem`, NVLink
-   domain, rack) stay the source of truth; a thin **`TopoNode`** (vertex → typed entity via
-   `sourceType`+`sourceId`) + **`TopoEdge`** (containment + connectivity, typed by `edgeType`, with validity
-   and an optional `linkId` → `FabricLink`) layer traverses them uniformly. `NodeToLink` is retired.
-   **One physical topology** (built from inventory); **many logical topologies** (one per job-run, derived),
-   materialized as **`AllocationTopoMember`** (job-run ↔ TopoNode, endpoint/traversed). **Root cause = the
-   lowest common denominator (LCA)** over the graph / memberships.
+5. **Topology is a set of typed relationships between components.** The typed entities (`Node`, `Gpu`,
+   `FabricSwitch`, `StorageSystem`, NVLink domain, rack) are the components; **`ComponentRelation`** relates
+   two of them directly — `(fromType,fromRef)`↔`(toType,toRef)` with a `kind` (`contains` / `nvlink` /
+   `compute_fabric` / …), validity, and an optional `linkId` → `FabricLink`. "What is X related to" = query
+   relations on either endpoint. **One physical topology** (built from inventory); **many logical topologies**
+   (one per job-run, derived), materialized as **`AllocationMember`** (job-run ↔ component,
+   endpoint/traversed). **Root cause = the lowest common denominator (LCA)** over the relations / memberships.
 6. **Shared-resource blast radius.** Shared components (switch / rack / cooling / power / storage) serve many
-   tenants; blast radius **fans out through topology** (switch → `TopoEdge` → node → GPU →
+   tenants; blast radius **fans out through topology** (switch → `ComponentRelation` → node → GPU →
    allocations at T → tenants), classified **`direct` / `degraded` / `potential`** by failure-domain type.
 7. **Telemetry is operator-only.** No `tenantId` on `OtlpTelemetry`; a denormalized `tenantSlug`/
    `tenantProfileId` hint may be stamped from the allocation, but scoping is derived, not enforced. "Trust
@@ -57,9 +57,8 @@ with the **Trillo AOS Claude Code plugin**. App: `NeoCloudObservability` (`.tril
 **Add**
 | Entity | Purpose | Tenant-scoped? |
 |---|---|---|
-| `TopoNode` | generic topology vertex → typed entity (`sourceType`+`sourceId`), with validity | no (operator-global) |
-| `TopoEdge` | generic edge (containment + connectivity): `edgeType`, validity, optional `linkId`→`FabricLink` | no (operator-global) |
-| `AllocationTopoMember` | job-run ↔ TopoNode membership (endpoint/traversed) — the materialized logical topology | no (operator-global; refTenantId) |
+| `ComponentRelation` | typed M:N relationship between two components: `(fromType,fromRef)`↔`(toType,toRef)`, `kind`, validity, optional `linkId`→`FabricLink` | no (operator-global) |
+| `AllocationMember` | job-run ↔ component membership (endpoint/traversed) — the materialized logical topology | no (operator-global; refTenantId) |
 | `Report` | saved analytics report (`generatedBy` ai/ml/sql/rule, scope, period, sections) | no (derived visibility) |
 | `StorageSystem` | shared FS / object / NVMe (`kind`, `role`, throughput/iops rated, `shared`) | no |
 | `StorageMount` *(optional)* | `storageSystemId → nodeId` for storage blast-radius fan-out | no |
@@ -71,8 +70,8 @@ with the **Trillo AOS Claude Code plugin**. App: `NeoCloudObservability` (`.tril
   `OtlpTelemetry` denormalized hint, `SimulationScenario.targetTenantId`). `Job` / `Allocation` /
   `TenantUsage` get `tenantId` as the RLS key. **`TenantProfile` becomes the 1:1 sidecar keyed by `tenantId`**
   (repurpose its `aosTenantId` → a required, unique `tenantId`); no `tenantProfileId` anywhere.
-- **`TopoNode` / `TopoEdge`** carry validity (`validFrom`/`validTo`) so topology is queryable as-of-T.
-- **Do not** add `Node.fabricSwitchId` (superseded by the `TopoNode`/`TopoEdge` graph).
+- **`ComponentRelation`** carries validity (`validFrom`/`validTo`) so topology is queryable as-of-T.
+- **Do not** add `Node.fabricSwitchId` (superseded by `ComponentRelation`).
 - **`OtlpTelemetry`**: add `storage` to the `source` enum + a `storageSystemId` flattened column (it already
   has `synthetic`, `executionId`, and the fleet semconv columns).
 - **`SimulationScenario`**: add a `shared_fs_contention` type (distinct from node-local `storage_starvation`).
@@ -104,7 +103,7 @@ Develop incrementally with the Claude Code plugin. **Slices 0–8 = core demo (c
 breadth**, cut first if time slips.
 
 - **Slice 0 — Tenancy + model deltas.** Flip `multiTenant`; add `tenantId` to `Job`/`Allocation`/
-  `TenantUsage`; add `TopoNode` + `TopoEdge` + `AllocationTopoMember`, `Report`, `StorageSystem`; `OtlpTelemetry` storage
+  `TenantUsage`; add `ComponentRelation` + `AllocationMember`, `Report`, `StorageSystem`; `OtlpTelemetry` storage
   source/column. *Accept:* app deploys multi-tenant; operator=tenant-0; RLS on the three classes verified.
 - **Slice 1 — Simulator.** `generate_synthetic_fleet` seeds operator + tenants, consistent topology,
   `Allocation` intervals, `SimulationScenario` timelines; emits **real-connector-shaped** rows through
@@ -115,8 +114,8 @@ breadth**, cut first if time slips.
 - **Slice 3 — Detectors & Reliability.** `run_detectors`, `get_finding_evidence`, `search_findings`,
   `correlate_findings`; cordon-recommend. *Accept:* ECC/row-remap and thermal-throttle findings with evidence.
 - **Slice 4 — Allocation, Logical Topology & Blast Radius.** `resolve_logical_topology` (project allocation →
-  `AllocationTopoMember`), `get_allocations_as_of`, `resolve_blast_radius` as an **LCA over
-  `AllocationTopoMember`** (as-of-T + shared fan-out + impact class), **Allocation Timeline** view. *Accept:*
+  `AllocationMember`), `get_allocations_as_of`, `resolve_blast_radius` as an **LCA over
+  `AllocationMember`** (as-of-T + shared fan-out + impact class), **Allocation Timeline** view. *Accept:*
   a shared-switch failure names all affected tenants at the event time, and Jobs 1/7/12 resolve to a single
   common root.
 - **Slice 5 — Utilization illusion (money shot).** `rollup_utilization`, `get_utilization_summary` (MFU vs
@@ -143,11 +142,11 @@ Existing (generated) functions to keep/extend: `ingest_otlp_telemetry`, `ingest_
 `get_finding_evidence`, `get_entity_activity`, `query_fleet_health`, `search_findings`, `estimate_capacity`,
 `reconcile_topology`, `refresh_baselines`, `run_full_sweep`, `save_ai_analysis`.
 
-New functions to generate (with slice): `build_physical_topology` (inventory → TopoNode/TopoEdge, 1/2),
-`get_topology_as_of` (2), `resolve_logical_topology` (project allocation → `AllocationTopoMember`, 4),
+New functions to generate (with slice): `build_physical_topology` (inventory → `ComponentRelation`, 1/2),
+`get_topology_as_of` (2), `resolve_logical_topology` (project allocation → `AllocationMember`, 4),
 `get_allocations_as_of` (4), `validate_topology` (1), `resolve_tenant_view` (9), `forecast` (9),
 `preview_remediation` (9), `generate_report` (8/9), storage detectors folded into `run_detectors` (9). Extend
-`resolve_blast_radius` to be an **LCA over `AllocationTopoMember`** (shared fan-out + as-of-T, 4); extend
+`resolve_blast_radius` to be an **LCA over `AllocationMember`** (shared fan-out + as-of-T, 4); extend
 `generate_synthetic_fleet` for tenancy + invariants + scenarios (1).
 
 **Authoring-heavy specs** for `build_physical_topology`, `resolve_logical_topology`, and the **LCA**

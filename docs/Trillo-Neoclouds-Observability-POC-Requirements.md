@@ -85,11 +85,12 @@ NVLink domain, PCIe root, `health` (ok / degraded / failed), ECC/row-remap state
 
 ### 3.4 Fabric & wiring
 The scale-out network as inventory + light telemetry. Entities: `FabricSwitch` (leaf / spine / core),
-`FabricLink` (endpoints, type IB / RoCE / NVLink, rail). Connectivity lives in the **generic topology graph**
-(§3.9): typed entities (`FabricSwitch`, `Node`, `Gpu`, …) are the source of truth, and **`TopoEdge`**s
-(`edgeType` `compute_fabric` / `nvlink` / `storage_fabric` / `management` / `tenant_network`, with `rail` and
-validity) wire them together. Shared blast radius traverses **switch → `TopoEdge` → node → GPU**. Deep
-per-link analytics are V2; V1 places jobs and blast radius on the graph.
+`FabricLink` (endpoints, type IB / RoCE / NVLink, rail). Topology is the set of typed **relationships** among
+components (§3.9): the typed entities (`FabricSwitch`, `Node`, `Gpu`, …) are the components, and
+**`ComponentRelation`** rows relate them (`kind` = `compute_fabric` / `nvlink` / `storage_fabric` / …, with
+`rail` and validity, optional `linkId` → `FabricLink`). Shared blast radius walks **switch →
+`ComponentRelation` → node → GPU**. Deep per-link analytics are V2; V1 places jobs and blast radius on the
+relations.
 
 ### 3.5 Tenant & TenantProfile (1:1 sidecar)
 The neocloud's customer **is the AOS framework `Tenant`** (`tenantId` → RLS). **`TenantProfile` is a 1:1
@@ -117,11 +118,11 @@ See §11.2.2.
 
 ### 3.9 Topology vs Allocation — two time-aware graphs
 Two graphs change at very different rates, so they are modeled differently (detail in the plan doc):
-- **Physical topology** — the *wiring*, near-static — is a **generic graph**: typed entities (`Node`, `Gpu`,
-  `FabricSwitch`, `StorageSystem`, NVLink domain, rack) are the source of truth, and a thin **`TopoNode`**
-  (vertex → typed entity via `sourceType`+`sourceId`) + **`TopoEdge`** (containment + connectivity, typed by
-  `edgeType`, optional `linkId` → `FabricLink`) layer traverses them uniformly. Edges that change carry
-  `validFrom` / `validTo`; "topology as of T" is a **query**, not a stored snapshot.
+- **Physical topology** — the *wiring*, near-static — is the set of typed **relationships** among components:
+  the typed entities (`Node`, `Gpu`, `FabricSwitch`, `StorageSystem`, NVLink domain, rack) are the components,
+  and **`ComponentRelation`** rows relate them (`kind` = containment or connectivity, optional
+  `linkId` → `FabricLink`). Relations that change carry `validFrom` / `validTo`; "topology as of T" is a
+  **query**, not a stored snapshot.
 - **Allocation overlay** (`Allocation`, time-windowed) — the *workload*, fast-changing; the management plane
   is the **trusted source**. "Allocation as of T" is a query over active intervals.
 The two compose into the full graph at time T. **Shared components** (switch, rack, cooling / power domain,
@@ -129,20 +130,18 @@ storage) serve **many tenants at once**, so blast radius fans out through topolo
 bindings. A cheap by-product of trusting the management plane: telemetry on a GPU with **no active
 allocation** surfaces as an inventory-gap / untenanted finding.
 
-**Physical vs logical topology.** There is **one physical topology** — the `TopoNode`/`TopoEdge` graph, built
-from inventory. There are **many logical topologies** — one per active job-run, each the physical subgraph a
-job induces: its **endpoint** GPUs/nodes *plus the shared components its traffic traverses* (NVLink domain,
-leaf/spine switch, storage). Logical topologies are **derived, not stored as subgraphs**; membership is
-materialized as **`AllocationTopoMember`** (job-run ↔ `TopoNode`, `role` endpoint|traversed, validity) at
-schedule time. V1 = the allocation's physical footprint; the framework communication topology (NCCL ring /
-parallelism groups) is V2.
+**Physical vs logical topology.** There is **one physical topology** — the `ComponentRelation` set, built from
+inventory. There are **many logical topologies** — one per active job-run, each the set of components a job
+induces: its **endpoint** GPUs/nodes *plus the shared components its traffic traverses* (NVLink domain,
+leaf/spine switch, storage). Logical topologies are **derived, not stored**; membership is materialized as
+**`AllocationMember`** (job-run ↔ component, `role` endpoint|traversed, validity) at schedule time. V1 = the
+allocation's physical footprint; the framework communication topology (NCCL ring / parallelism groups) is V2.
 
-**Failure → attribution → root cause.** A detector fires → resolve the source `TopoNode` → **look it up in
-`AllocationTopoMember`** to get every affected job-run and tenant (direct + shared). When several jobs fail,
-the **root cause is the lowest common denominator (LCA)** in the graph — the minimal shared `TopoNode` whose
-failure explains them all (a leaf switch, a rack cooling/power domain, a storage tier). The same substrate
-(physical graph + membership + telemetry) drives troubleshooting, billing-refund / SLA attribution, and real
-utilization.
+**Failure → attribution → root cause.** A detector fires → resolve the source component → **look it up in
+`AllocationMember`** to get every affected job-run and tenant (direct + shared). When several jobs fail, the
+**root cause is the lowest common denominator (LCA)** — the minimal shared component whose failure explains
+them all (a leaf switch, a rack cooling/power domain, a storage tier). The same substrate (relations +
+membership + telemetry) drives troubleshooting, billing-refund / SLA attribution, and real utilization.
 
 ---
 
@@ -235,7 +234,7 @@ The POC shall:
 - Resolve blast radius **at the time of the event (`as-of-T`)** from the time-windowed `Allocation` ledger —
   not just current bindings.
 - For **shared components** (switch / rack / cooling / power / storage), **fan out through topology**
-  (`TopoEdge` traversal, rack membership, NVLink domain) to every tenant served — not only the directly-bound GPU.
+  (`ComponentRelation` traversal, rack membership, NVLink domain) to every tenant served — not only the directly-bound GPU.
 - Classify each impacted job as **`direct` / `degraded` / `potential`** by failure-domain type.
 - Provide an **Allocation Timeline** view ("who held what, when") as the operator's point-in-time lens over
   the fleet.

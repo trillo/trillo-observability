@@ -21,17 +21,18 @@ Deltas only — full detail is in the PRD, POC-Requirements, Plan, and Function-
   real RLS behind it.
 
 ## Topology (new model)
-- Topology is now a **generic graph**: **`TopoNode`** (vertex → typed entity via `sourceType`+`sourceId`) +
-  **`TopoEdge`** (containment + connectivity, typed by `edgeType`, with validity). **`NodeToLink` retired.**
+- Topology is a set of typed **relationships between components**: **`ComponentRelation`** relates two
+  components directly — `(fromType,fromRef)`↔`(toType,toRef)` with a `kind`. Select a component → its
+  relations → related components. (No vertex/edge graph; `TopoNode`/`TopoEdge`/`NodeToLink` retired.)
 - Typed entities (`Gpu`, `Node`, `FabricSwitch`, `StorageSystem`, …) remain the source of truth; the graph is
   a thin index over them for traversal.
 - **One physical topology** (built from inventory) + **many logical topologies** (per job-run, derived),
-  materialized as **`AllocationTopoMember`** (job-run ↔ TopoNode, `role` endpoint/traversed).
+  materialized as **`AllocationMember`** (job-run ↔ component, `role` endpoint/traversed).
 - **Blast radius / root cause = LCA** over the graph + membership (a shared switch/rack/storage failure fans
   out to every tenant it serves; multiple failed jobs resolve to one common root).
 
 ## New / changed entities
-- **Add:** `TopoNode`, `TopoEdge`, `AllocationTopoMember`, `Report`, `StorageSystem`.
+- **Add:** `ComponentRelation`, `AllocationMember`, `Report`, `StorageSystem`.
 - **Changed:** `OtlpTelemetry` (+`storage` source, +`storageSystemId`, tenant hint → `refTenantId`);
   `SimulationScenario` (+`shared_fs_contention`, `targetTenantId`); the tenancy renames above.
 
@@ -43,12 +44,12 @@ Deltas only — full detail is in the PRD, POC-Requirements, Plan, and Function-
 
 ## For the UI team
 - **UI will regenerate — expected and fine.** Overview of what's new so the regenerated screens make sense:
-  - **Fleet Map** renders the **topology graph** (`TopoNode`/`TopoEdge`), not ad-hoc joins.
-  - **Blast Radius** now shows **direct vs shared** impact and a **root-cause (LCA)** vertex; opens from a
+  - **Fleet Map** + a **Relationships** panel: select a component → what it's related to (via `ComponentRelation`), with icons.
+  - **Blast Radius** now shows **direct vs shared** impact and a **root-cause (LCA)** component; opens from a
     finding or a map node.
   - **Allocation Timeline** ("who held what, when") is a first-class view (as-of-T).
   - **Utilization** leads with **real MFU vs `GPU_UTIL`** and reclaimable idle by tenant.
-  - Tenant-facing views (later) are the same screens filtered by the tenant's `AllocationTopoMember`.
+  - Tenant-facing views (later) are the same screens filtered by the tenant's `AllocationMember`.
   - Bindings use **`tenantId`** on tenant-scoped data and **`refTenantId`** on operator-global data.
 
 ## Full docs (in `trillo-observability/docs/`)
