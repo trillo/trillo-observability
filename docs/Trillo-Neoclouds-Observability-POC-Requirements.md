@@ -129,6 +129,21 @@ storage) serve **many tenants at once**, so blast radius fans out through topolo
 bindings. A cheap by-product of trusting the management plane: telemetry on a GPU with **no active
 allocation** surfaces as an inventory-gap / untenanted finding.
 
+**Physical vs logical topology.** There is **one physical topology** — the `TopoNode`/`TopoEdge` graph, built
+from inventory. There are **many logical topologies** — one per active job-run, each the physical subgraph a
+job induces: its **endpoint** GPUs/nodes *plus the shared components its traffic traverses* (NVLink domain,
+leaf/spine switch, storage). Logical topologies are **derived, not stored as subgraphs**; membership is
+materialized as **`AllocationTopoMember`** (job-run ↔ `TopoNode`, `role` endpoint|traversed, validity) at
+schedule time. V1 = the allocation's physical footprint; the framework communication topology (NCCL ring /
+parallelism groups) is V2.
+
+**Failure → attribution → root cause.** A detector fires → resolve the source `TopoNode` → **look it up in
+`AllocationTopoMember`** to get every affected job-run and tenant (direct + shared). When several jobs fail,
+the **root cause is the lowest common denominator (LCA)** in the graph — the minimal shared `TopoNode` whose
+failure explains them all (a leaf switch, a rack cooling/power domain, a storage tier). The same substrate
+(physical graph + membership + telemetry) drives troubleshooting, billing-refund / SLA attribution, and real
+utilization.
+
 ---
 
 # 4. Scenario 1: Fleet Inventory & Topology
