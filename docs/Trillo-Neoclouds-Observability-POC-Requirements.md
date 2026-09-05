@@ -85,11 +85,11 @@ NVLink domain, PCIe root, `health` (ok / degraded / failed), ECC/row-remap state
 
 ### 3.4 Fabric & wiring
 The scale-out network as inventory + light telemetry. Entities: `FabricSwitch` (leaf / spine / core),
-`FabricLink` (endpoints, type IB / RoCE / NVLink, rail), and **`NodeToLink`** — the **many-to-many** join
-letting a node fan out to multiple links, with a **`linkType`** discriminator (`compute_fabric` / `nvlink` /
-`storage_fabric` / `management` / `tenant_network`), `rail`, and a validity interval. Shared blast radius
-traverses **switch → `FabricLink` → `NodeToLink` → nodes → GPUs**. Deep per-link analytics are V2; V1 places
-jobs and blast radius on the graph.
+`FabricLink` (endpoints, type IB / RoCE / NVLink, rail). Connectivity lives in the **generic topology graph**
+(§3.9): typed entities (`FabricSwitch`, `Node`, `Gpu`, …) are the source of truth, and **`TopoEdge`**s
+(`edgeType` `compute_fabric` / `nvlink` / `storage_fabric` / `management` / `tenant_network`, with `rail` and
+validity) wire them together. Shared blast radius traverses **switch → `TopoEdge` → node → GPU**. Deep
+per-link analytics are V2; V1 places jobs and blast radius on the graph.
 
 ### 3.5 Tenant & TenantProfile (1:1 sidecar)
 The neocloud's customer **is the AOS framework `Tenant`** (`tenantId` → RLS). **`TenantProfile` is a 1:1
@@ -117,9 +117,11 @@ See §11.2.2.
 
 ### 3.9 Topology vs Allocation — two time-aware graphs
 Two graphs change at very different rates, so they are modeled differently (detail in the plan doc):
-- **Physical topology** (`Node`, `FabricLink`, `NodeToLink`, `Gpu`, NVLink domain, switch, rack) — the
-  *wiring*, near-static; the edges that can change carry `validFrom` / `validTo`. "Topology as of T" is a
-  **query**, not a stored snapshot (no `Topology`-snapshot class).
+- **Physical topology** — the *wiring*, near-static — is a **generic graph**: typed entities (`Node`, `Gpu`,
+  `FabricSwitch`, `StorageSystem`, NVLink domain, rack) are the source of truth, and a thin **`TopoNode`**
+  (vertex → typed entity via `sourceType`+`sourceId`) + **`TopoEdge`** (containment + connectivity, typed by
+  `edgeType`, optional `linkId` → `FabricLink`) layer traverses them uniformly. Edges that change carry
+  `validFrom` / `validTo`; "topology as of T" is a **query**, not a stored snapshot.
 - **Allocation overlay** (`Allocation`, time-windowed) — the *workload*, fast-changing; the management plane
   is the **trusted source**. "Allocation as of T" is a query over active intervals.
 The two compose into the full graph at time T. **Shared components** (switch, rack, cooling / power domain,
@@ -218,7 +220,7 @@ The POC shall:
 - Resolve blast radius **at the time of the event (`as-of-T`)** from the time-windowed `Allocation` ledger —
   not just current bindings.
 - For **shared components** (switch / rack / cooling / power / storage), **fan out through topology**
-  (`NodeToLink`, rack membership, NVLink domain) to every tenant served — not only the directly-bound GPU.
+  (`TopoEdge` traversal, rack membership, NVLink domain) to every tenant served — not only the directly-bound GPU.
 - Classify each impacted job as **`direct` / `degraded` / `potential`** by failure-domain type.
 - Provide an **Allocation Timeline** view ("who held what, when") as the operator's point-in-time lens over
   the fleet.

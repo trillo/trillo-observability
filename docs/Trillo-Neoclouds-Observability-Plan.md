@@ -34,11 +34,12 @@ with the **Trillo AOS Claude Code plugin**. App: `NeoCloudObservability` (`.tril
      `Topology`-snapshot class. "Topology as of T" = query.
    - *Allocation* (fast-changing): time-interval rows. "Allocation as of T" = query. Management plane is the
      **trusted source**.
-5. **`NodeToLink` (M:N)** replaces any link attribute on `Node` — a node fans out to many links. Carries a
-   **typed `linkType`** (`compute_fabric` / `nvlink` / `storage_fabric` / `management` / `tenant_network`),
-   `rail`, and a validity interval.
+5. **Topology is a generic graph.** Typed entities (`Node`, `Gpu`, `FabricSwitch`, `StorageSystem`, NVLink
+   domain, rack) stay the source of truth; a thin **`TopoNode`** (vertex → typed entity via
+   `sourceType`+`sourceId`) + **`TopoEdge`** (containment + connectivity, typed by `edgeType`, with validity
+   and an optional `linkId` → `FabricLink`) layer traverses them uniformly. `NodeToLink` is retired.
 6. **Shared-resource blast radius.** Shared components (switch / rack / cooling / power / storage) serve many
-   tenants; blast radius **fans out through topology** (switch → `FabricLink` → `NodeToLink` → nodes → GPUs →
+   tenants; blast radius **fans out through topology** (switch → `TopoEdge` → node → GPU →
    allocations at T → tenants), classified **`direct` / `degraded` / `potential`** by failure-domain type.
 7. **Telemetry is operator-only.** No `tenantId` on `OtlpTelemetry`; a denormalized `tenantSlug`/
    `tenantProfileId` hint may be stamped from the allocation, but scoping is derived, not enforced. "Trust
@@ -53,7 +54,8 @@ with the **Trillo AOS Claude Code plugin**. App: `NeoCloudObservability` (`.tril
 **Add**
 | Entity | Purpose | Tenant-scoped? |
 |---|---|---|
-| `NodeToLink` | M:N node↔link with typed `linkType`, `rail`, `validFrom`/`validTo` | no (operator-global) |
+| `TopoNode` | generic topology vertex → typed entity (`sourceType`+`sourceId`), with validity | no (operator-global) |
+| `TopoEdge` | generic edge (containment + connectivity): `edgeType`, validity, optional `linkId`→`FabricLink` | no (operator-global) |
 | `Report` | saved analytics report (`generatedBy` ai/ml/sql/rule, scope, period, sections) | no (derived visibility) |
 | `StorageSystem` | shared FS / object / NVMe (`kind`, `role`, throughput/iops rated, `shared`) | no |
 | `StorageMount` *(optional)* | `storageSystemId → nodeId` for storage blast-radius fan-out | no |
@@ -65,8 +67,8 @@ with the **Trillo AOS Claude Code plugin**. App: `NeoCloudObservability` (`.tril
   `OtlpTelemetry` denormalized hint, `SimulationScenario.targetTenantId`). `Job` / `Allocation` /
   `TenantUsage` get `tenantId` as the RLS key. **`TenantProfile` becomes the 1:1 sidecar keyed by `tenantId`**
   (repurpose its `aosTenantId` → a required, unique `tenantId`); no `tenantProfileId` anywhere.
-- **`NodeToLink`** carries edge validity; add `validFrom`/`validTo` to other structural edges that can change.
-- **Do not** add `Node.fabricSwitchId` (superseded by `NodeToLink`).
+- **`TopoNode` / `TopoEdge`** carry validity (`validFrom`/`validTo`) so topology is queryable as-of-T.
+- **Do not** add `Node.fabricSwitchId` (superseded by the `TopoNode`/`TopoEdge` graph).
 - **`OtlpTelemetry`**: add `storage` to the `source` enum + a `storageSystemId` flattened column (it already
   has `synthetic`, `executionId`, and the fleet semconv columns).
 - **`SimulationScenario`**: add a `shared_fs_contention` type (distinct from node-local `storage_starvation`).
@@ -98,7 +100,7 @@ Develop incrementally with the Claude Code plugin. **Slices 0–8 = core demo (c
 breadth**, cut first if time slips.
 
 - **Slice 0 — Tenancy + model deltas.** Flip `multiTenant`; add `tenantId` to `Job`/`Allocation`/
-  `TenantUsage`; add `NodeToLink` (+validity), `Report`, `StorageSystem`; `OtlpTelemetry` storage
+  `TenantUsage`; add `TopoNode` + `TopoEdge`, `Report`, `StorageSystem`; `OtlpTelemetry` storage
   source/column. *Accept:* app deploys multi-tenant; operator=tenant-0; RLS on the three classes verified.
 - **Slice 1 — Simulator.** `generate_synthetic_fleet` seeds operator + tenants, consistent topology,
   `Allocation` intervals, `SimulationScenario` timelines; emits **real-connector-shaped** rows through
